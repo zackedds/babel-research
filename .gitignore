@@ -1,0 +1,6 @@
+node_modules/
+.babel-agent/
+__pycache__/
+*.pyc
+.venv/
+.worktrees/

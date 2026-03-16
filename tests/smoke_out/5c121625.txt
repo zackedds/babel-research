@@ -1,0 +1,7 @@
+run_id=5c121625
+task-1: Add weighted average CLI
+description: Write a simple, quick CLI-based tool that accepts values and weights from the command line, computes the weighted average, handles mismatched or invalid input, and is straightforward to implement and smoke test.
+note: Expectation: add a minimal CLI entry point that accepts paired values and weights, computes the weighted average correctly, rejects mismatched list lengths, zero total weight, or non-numeric input, and remains simple to exercise from the shell.
+task-2: Add factorial CLI
+description: Write a simple, quick CLI-based tool that accepts an integer input, computes its factorial, handles basic invalid input, and is easy for another agent to implement and verify.
+note: Expectation: add a minimal CLI entry point for factorial n, return the correct result for non-negative integers, reject negative or non-integer input with a clear error, and keep the implementation small enough for a quick smoke test from the shell.

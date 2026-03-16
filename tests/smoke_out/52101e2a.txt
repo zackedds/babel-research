@@ -1,0 +1,14 @@
+run_id: 52101e2a
+status: prepared
+
+tasks:
+- id: task-1
+  title: Build factorial CLI tool
+  ready: true
+  dependencies: none
+  note: Expectation: implement a minimal CLI that accepts one integer argument, prints the factorial result to stdout, rejects negative or non-integer input with a clear error message, and includes 1-2 fast smoke tests covering a valid case and an invalid case.
+- id: task-2
+  title: Build weighted average CLI tool
+  ready: true
+  dependencies: none
+  note: Expectation: implement a minimal CLI that accepts values and weights from the command line, computes the weighted average, prints the numeric result to stdout, rejects mismatched lengths or zero total weight with a clear error message, and includes 1-2 fast smoke tests covering a valid case and an invalid case.

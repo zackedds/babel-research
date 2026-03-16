@@ -1,0 +1,14 @@
+run_id: 001b4474
+status: prepared
+
+tasks:
+- id: task-1
+  title: Build weighted average CLI tool
+  ready: true
+  dependencies: none
+  note: Expectation: expose a small CLI that accepts value:weight pairs or an equivalent concise argument format, prints the weighted average, and rejects malformed input or a zero total weight with a clear error path.
+- id: task-2
+  title: Build factorial CLI tool
+  ready: true
+  dependencies: none
+  note: Expectation: expose a tiny CLI entrypoint that takes one integer argument, returns the factorial for valid non-negative integers, and exits with a clear error message for missing, non-integer, or negative input.

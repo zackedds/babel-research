@@ -1,0 +1,7 @@
+run_id: b1fb8ea4
+
+created_tasks:
+- task-1 | Build weighted average CLI | ready=true | blockers=none
+  note: Expectation: keep the tool minimal and fast to implement; accept CLI inputs for values and corresponding weights, compute the weighted mean, print only the numeric result on success, and reject mismatched counts, non-numeric inputs, or zero total weight with a clear failure path.
+- task-2 | Build factorial CLI | ready=true | blockers=none
+  note: Expectation: keep the tool minimal and fast to implement; accept a single non-negative integer CLI argument, compute factorial iteratively or with stdlib-safe logic, print only the numeric result on success, and reject negative, missing, non-integer, or extra-invalid input cleanly.

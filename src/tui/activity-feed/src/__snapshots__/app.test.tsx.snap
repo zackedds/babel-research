@@ -1,0 +1,45 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`screen renders a single session table 1`] = `
+"                                                                                                                        
+ bab activity  run deadbeef  running  phase=worker  rounds=2                                                            
+ move: j/k or arrows  expand: enter/space  jump: g/G  quit: q                                                           
+                                                                                                                        
+ role        round    tmux session          task                                status                                  
+ -------------------------------------------------------------------------------------------                            
+ > worker      R3       orch-worker-2         Add activity feed                   running                               
+   planner     R2       orch-planner-1        -                                   completed                             
+   worker      R2       orch-worker-1         Stabilize driver                    failed                                
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+"
+`;

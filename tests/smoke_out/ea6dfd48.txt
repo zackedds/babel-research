@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "op": "list",
+  "result": {
+    "status": "preparing",
+    "view": "all",
+    "total": 2,
+    "offset": 0,
+    "count": 2,
+    "tasks": [
+      {
+        "id": "task-1",
+        "title": "Add factorial CLI",
+        "description": "Write a simple, quick CLI-based tool that computes factorials from command-line input, handles straightforward integer parsing, and returns an easy-to-read result for smoke-level usage.",
+        "status": "open",
+        "ready": true,
+        "notes": [
+          {
+            "text": "Expectation: implement a minimal CLI entry point for factorial calculation, accept one integer argument, return the computed factorial in plain text, and keep the solution intentionally lightweight for quick delivery and smoke verification.",
+            "ts": "2026-03-16T18:14:15.975633+00:00"
+          }
+        ],
+        "blockers": [],
+        "blocked": [],
+        "created_at": "2026-03-16T18:14:07.578710+00:00",
+        "updated_at": "2026-03-16T18:14:15.975633+00:00",
+        "close_reason": "",
+        "client_id": ""
+      },
+      {
+        "id": "task-2",
+        "title": "Add weighted average CLI",
+        "description": "Write a simple, quick CLI-based tool that computes a weighted average from command-line inputs, accepts paired values and weights, and prints a concise result suitable for smoke tests.",
+        "status": "open",
+        "ready": true,
+        "notes": [
+          {
+            "text": "Expectation: implement a minimal CLI entry point for weighted average calculation, accept simple value/weight inputs from the command line, compute the weighted mean correctly, and keep argument handling and output format simple enough for fast smoke-level validation.",
+            "ts": "2026-03-16T18:14:15.975328+00:00"
+          }
+        ],
+        "blockers": [],
+        "blocked": [],
+        "created_at": "2026-03-16T18:14:10.276656+00:00",
+        "updated_at": "2026-03-16T18:14:15.975328+00:00",
+        "close_reason": "",
+        "client_id": ""
+      }
+    ]
+  }
+}

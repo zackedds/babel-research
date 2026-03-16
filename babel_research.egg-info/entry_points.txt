@@ -1,0 +1,5 @@
+[console_scripts]
+bab = src.bab_cli.cli:main
+factorial = src.factorial_cli:main
+tasks = src.tasks.tasks_cli:main
+weighted-average = src.weighted_average_cli:main
