@@ -23,6 +23,7 @@ def activity_snapshot(root: Path, *, run_id: str | None = None, tmux_client=None
     active_ids = set(run.planner_session_ids)
     for wave in run.worker_waves:
         active_ids.update(wave)
+    active_ids.update(run.librarian_session_ids)
 
     rows = []
     for session_id in active_ids:

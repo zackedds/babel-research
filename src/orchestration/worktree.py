@@ -22,17 +22,10 @@ def ensure_branch(repo_root: Path, branch: str) -> None:
 
 
 def create_worktree(repo_root: Path, session_id: str, branch: str) -> Path:
-    """Create sub-branch <branch>--<session_id> and a worktree for it."""
-    sub_branch = f"{branch}--{session_id}"
-    subprocess.run(
-        ["git", "branch", sub_branch, branch],
-        capture_output=True,
-        check=True,
-        cwd=repo_root,
-    )
+    """Create a worktree for <branch> at .worktrees/<session_id>."""
     worktree_path = repo_root / ".worktrees" / session_id
     subprocess.run(
-        ["git", "worktree", "add", str(worktree_path), sub_branch],
+        ["git", "worktree", "add", str(worktree_path), branch],
         capture_output=True,
         check=True,
         cwd=repo_root,

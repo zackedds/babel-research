@@ -226,6 +226,16 @@ def tasks(op: str, *, path: Path = DEFAULT_TASKS_PATH, **kwargs: Any) -> dict[st
             _tasks_save(path, data)
             return {"ok": True, "op": op, "result": {"status": data["status"]}}
 
+        if op == "wiki_under_construction":
+            data["status"] = "wiki_under_construction"
+            _tasks_save(path, data)
+            return {"ok": True, "op": op, "result": {"status": data["status"]}}
+
+        if op == "wiki_ready":
+            data["status"] = "wiki_ready"
+            _tasks_save(path, data)
+            return {"ok": True, "op": op, "result": {"status": data["status"]}}
+
         if op == "note_append":
             task_id = kwargs.get("id")
             note = kwargs.get("note")

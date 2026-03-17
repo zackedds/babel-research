@@ -38,6 +38,18 @@ EOF
 git add README.md
 git commit -m "Initial commit"
 
+mkdir -p .babel-agent
+cat > .babel-agent/config.toml <<'EOF'
+[roles.planner]
+model = "gpt-5-codex-mini"
+
+[roles.worker]
+model = "gpt-5-codex-mini"
+
+[roles.librarian]
+model = "gpt-5-codex-mini"
+EOF
+
 echo ""
 echo "Smoke repo ready at: $DEST"
 echo ""

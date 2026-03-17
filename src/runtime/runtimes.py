@@ -17,6 +17,8 @@ def builtin_runtimes() -> dict[str, RuntimeDefinition]:
             ready_strategy=ReadyStrategy(
                 banner_substring="OpenAI Codex",
                 prompt_prefix="› ",
+                timeout_seconds=10.0,
+                auto_respond_patterns=(("Choose how you'd like Codex to proceed.", "2"),),
             ),
             agent_logs_dir=Path.home() / ".codex" / "sessions",
         )

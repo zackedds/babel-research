@@ -20,6 +20,7 @@ class ReadyStrategy:
     prompt_prefix: str
     timeout_seconds: float = 20.0
     poll_interval_seconds: float = 0.2
+    auto_respond_patterns: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,8 @@ class OrchestrationRun:
     rounds_completed: int
     planner_session_ids: list[str]
     worker_waves: list[list[str]]
+    librarian_session_ids: list[str]
     claimed_task_ids: list[str]
-    current_phase: Literal["planner", "worker", "stopped"]
+    current_phase: Literal["planner", "worker", "librarian", "stopped"]
     created_at: datetime
     updated_at: datetime

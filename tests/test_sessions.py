@@ -18,10 +18,12 @@ class FakeTmuxClient:
         self.sessions: set[str] = set()
         self.panes: dict[str, str] = {}
         self.on_kill_session = None
+        self.last_command: list[str] | None = None
 
     def create_session(self, session_name: str, workdir: Path, command: list[str]) -> None:
         self.sessions.add(session_name)
         self.panes.setdefault(session_name, "")
+        self.last_command = list(command)
 
     def wait_until_ready(self, session_name: str, strategy) -> None:
         return None
@@ -590,6 +592,83 @@ class SessionsTest(unittest.TestCase):
             )
 
             self.assertEqual(session.id, "deadbeef")
+
+
+class ConfigOverrideTest(unittest.TestCase):
+    def _make_root(self, tmp: str, role_yaml: str = "prompt: 'Plan carefully.'\n", role: str = "planner") -> Path:
+        root = Path(tmp)
+        roles_path = root / "src" / "roles"
+        roles_path.mkdir(parents=True)
+        (roles_path / f"{role}.yaml").write_text(role_yaml, encoding="utf-8")
+        return root
+
+    def _create_session(self, root: Path, fake_tmux: FakeTmuxClient, role: str = "planner") -> None:
+        orchestrator = Orchestrator(root, tmux_client=fake_tmux, watcher_launcher=FakeWatcherLauncher())
+        orchestrator.create_session(
+            AgentSessionSpec(
+                role=role,
+                runtime="codex",
+                session_prompt="Start.",
+                workdir=root,
+            )
+        )
+
+    def test_no_config_no_extra_flags(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = self._make_root(tmp)
+            fake_tmux = FakeTmuxClient()
+            self._create_session(root, fake_tmux)
+            assert fake_tmux.last_command is not None
+            self.assertNotIn("-m", fake_tmux.last_command)
+            self.assertNotIn("--thinking", fake_tmux.last_command)
+
+    def test_config_model_appended(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = self._make_root(tmp)
+            config_dir = root / ".babel-agent"
+            config_dir.mkdir(parents=True)
+            (config_dir / "config.toml").write_text(
+                '[roles.planner]\nmodel = "o3"\n', encoding="utf-8"
+            )
+            fake_tmux = FakeTmuxClient()
+            self._create_session(root, fake_tmux)
+            assert fake_tmux.last_command is not None
+            self.assertIn("-m", fake_tmux.last_command)
+            idx = fake_tmux.last_command.index("-m")
+            self.assertEqual(fake_tmux.last_command[idx + 1], "o3")
+            self.assertNotIn("--thinking", fake_tmux.last_command)
+
+    def test_config_overrides_yaml_model(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = self._make_root(tmp, role_yaml="prompt: 'Plan carefully.'\nmodel: o1\n")
+            config_dir = root / ".babel-agent"
+            config_dir.mkdir(parents=True)
+            (config_dir / "config.toml").write_text(
+                '[roles.planner]\nmodel = "o3"\n', encoding="utf-8"
+            )
+            fake_tmux = FakeTmuxClient()
+            self._create_session(root, fake_tmux)
+            assert fake_tmux.last_command is not None
+            idx = fake_tmux.last_command.index("-m")
+            self.assertEqual(fake_tmux.last_command[idx + 1], "o3")
+
+    def test_config_model_yaml_thinking_both_appended(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = self._make_root(tmp, role_yaml="prompt: 'Plan carefully.'\nthinking: high\n")
+            config_dir = root / ".babel-agent"
+            config_dir.mkdir(parents=True)
+            (config_dir / "config.toml").write_text(
+                '[roles.planner]\nmodel = "o3"\n', encoding="utf-8"
+            )
+            fake_tmux = FakeTmuxClient()
+            self._create_session(root, fake_tmux)
+            assert fake_tmux.last_command is not None
+            self.assertIn("-m", fake_tmux.last_command)
+            self.assertIn("--thinking", fake_tmux.last_command)
+            idx_m = fake_tmux.last_command.index("-m")
+            self.assertEqual(fake_tmux.last_command[idx_m + 1], "o3")
+            idx_t = fake_tmux.last_command.index("--thinking")
+            self.assertEqual(fake_tmux.last_command[idx_t + 1], "high")
 
 
 if __name__ == "__main__":

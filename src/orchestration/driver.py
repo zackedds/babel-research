@@ -15,7 +15,7 @@ from ..utils.models import AgentSession, AgentSessionSpec, OrchestrationRun
 from .runs import RunStore
 from .sessions import Orchestrator, append_log_line
 from .state_paths import driver_log_path, tasks_file_path
-from .worktree import create_worktree, ensure_branch
+from .worktree import create_worktree, ensure_branch, remove_worktree
 
 POLL_INTERVAL_SECONDS = 0.2
 
@@ -88,6 +88,7 @@ def run_orchestration_loop(
     run_tasks_path = tasks_file_path(root, run.id)
     log_path = driver_log_path(root, run.id)
     append_log_line(log_path, f"orchestration loop starting phase={run.current_phase} rounds_completed={run.rounds_completed}")
+    _ensure_wiki_dir(run.workdir)
 
     while run.status == "running":
         if run.current_phase == "planner":
@@ -170,6 +171,47 @@ def run_orchestration_loop(
                 )
                 _update_run(run_store, replace(run, status="failed", current_phase="stopped"))
                 break
+            for worker in workers:
+                if worker.task_id:
+                    task_item = tasks("get", path=run_tasks_path, id=worker.task_id)["result"]
+                    branch = str(task_item.get("branch", "")).strip()
+                    if branch:
+                        _merge_wiki_from_worker(run.workdir, worker, branch, log_path)
+            tasks("wiki_under_construction", path=run_tasks_path)
+            round_index = run.rounds_completed + 1
+            librarian = orchestrator.create_session(
+                AgentSessionSpec(
+                    role="librarian",
+                    runtime="codex",
+                    session_prompt=build_librarian_prompt(run.id),
+                    workdir=run.workdir,
+                    round_index=round_index,
+                )
+            )
+            append_log_line(log_path, f"librarian session created session_id={librarian.id} round={round_index}")
+            run = _update_run(
+                run_store,
+                replace(run, librarian_session_ids=[*run.librarian_session_ids, librarian.id], current_phase="librarian"),
+            )
+            continue
+
+        if run.current_phase == "librarian":
+            librarian = _wait_for_session(orchestrator, run.librarian_session_ids[-1], poll_interval_seconds)
+            if _session_failed(librarian):
+                append_log_line(
+                    log_path,
+                    f"librarian session failed session_id={librarian.id} outcome={librarian.terminal_outcome} source={librarian.failure_source}",
+                )
+                _update_run(run_store, replace(run, status="failed", current_phase="stopped"))
+                break
+            current_wave = run.worker_waves[-1] if run.worker_waves else []
+            for session_id in current_wave:
+                session = orchestrator.get_session(session_id)
+                if session and session.task_id:
+                    task_item = tasks("get", path=run_tasks_path, id=session.task_id)["result"]
+                    branch = str(task_item.get("branch", "")).strip()
+                    if branch:
+                        _sync_wiki_to_branch(run.workdir, branch, log_path)
             rounds_completed = run.rounds_completed + 1
             if run.max_rounds is not None and rounds_completed >= run.max_rounds:
                 append_log_line(log_path, f"max rounds reached at round={rounds_completed}; marking run completed")
@@ -178,7 +220,7 @@ def run_orchestration_loop(
                     replace(run, rounds_completed=rounds_completed, status="completed", current_phase="stopped"),
                 )
                 break
-            append_log_line(log_path, f"worker wave completed; advancing to planner round={rounds_completed + 1}")
+            append_log_line(log_path, f"librarian complete; advancing to planner round={rounds_completed + 1}")
             run = _update_run(run_store, replace(run, rounds_completed=rounds_completed, current_phase="planner"))
             continue
 
@@ -277,9 +319,8 @@ def build_worker_prompt(task_item: dict[str, object], run_id: str, *, tasks_path
     if branch and worktree_path is not None:
         lines += [
             "",
-            f"Branch context: {branch}",
+            f"Branch: {branch}",
             f"Working directory: {worktree_path}",
-            f"Your work is on a private sub-branch. Decide whether to merge into '{branch}' before closing.",
         ]
     return "\n".join(lines).strip()
 
@@ -297,6 +338,115 @@ def _sync_claimed_tasks(tasks_path: Path, run: OrchestrationRun) -> None:
         task_item = tasks("get", path=tasks_path, id=task_id)["result"]
         if task_item["status"] == "open":
             tasks("assign", path=tasks_path, id=task_id)
+
+
+def _ensure_wiki_dir(workdir: Path) -> None:
+    """Create wiki/ in workdir and commit it if it doesn't already exist."""
+    wiki_dir = workdir / "wiki"
+    wiki_dir.mkdir(exist_ok=True)
+    gitkeep = wiki_dir / ".gitkeep"
+    if not gitkeep.exists():
+        gitkeep.touch()
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "wiki/"],
+        capture_output=True,
+        text=True,
+        cwd=workdir,
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        subprocess.run(["git", "add", "wiki/"], capture_output=True, check=True, cwd=workdir)
+        subprocess.run(
+            ["git", "commit", "-m", "chore: init wiki directory"],
+            capture_output=True,
+            check=True,
+            cwd=workdir,
+        )
+
+
+def _merge_wiki_from_worker(workdir: Path, session: AgentSession, task_branch: str, log_path: Path) -> None:
+    """Checkout wiki/ from task_branch onto main (workdir). Commit if changed."""
+    result = subprocess.run(
+        ["git", "checkout", task_branch, "--", "wiki/"],
+        capture_output=True,
+        cwd=workdir,
+    )
+    if result.returncode != 0:
+        append_log_line(log_path, f"wiki merge skipped for session={session.id} branch={task_branch}: {result.stderr.decode().strip()}")
+        return
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "wiki/"],
+        capture_output=True,
+        text=True,
+        cwd=workdir,
+    )
+    if status.returncode == 0 and status.stdout.strip():
+        subprocess.run(["git", "add", "wiki/"], capture_output=True, check=True, cwd=workdir)
+        subprocess.run(
+            ["git", "commit", "-m", f"wiki: merge from {session.task_id}"],
+            capture_output=True,
+            check=True,
+            cwd=workdir,
+        )
+        append_log_line(log_path, f"wiki merge committed for session={session.id} branch={task_branch}")
+    else:
+        append_log_line(log_path, f"wiki merge: no wiki changes for session={session.id} branch={task_branch}")
+
+
+def _sync_wiki_to_branch(workdir: Path, task_branch: str, log_path: Path) -> None:
+    """Copy wiki/ from main into task_branch via a temporary worktree."""
+    temp_id = secrets.token_hex(4)
+    temp_path = workdir / ".worktrees" / f"wiki-sync-{temp_id}"
+    try:
+        subprocess.run(
+            ["git", "worktree", "add", str(temp_path), task_branch],
+            capture_output=True,
+            check=True,
+            cwd=workdir,
+        )
+        subprocess.run(
+            ["git", "checkout", "main", "--", "wiki/"],
+            capture_output=True,
+            cwd=temp_path,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "wiki/"],
+            capture_output=True,
+            text=True,
+            cwd=temp_path,
+        )
+        if status.returncode == 0 and status.stdout.strip():
+            subprocess.run(["git", "add", "wiki/"], capture_output=True, check=True, cwd=temp_path)
+            subprocess.run(
+                ["git", "commit", "-m", "wiki: sync from main"],
+                capture_output=True,
+                check=True,
+                cwd=temp_path,
+            )
+            append_log_line(log_path, f"wiki synced to branch={task_branch}")
+        else:
+            append_log_line(log_path, f"wiki sync: no changes to push to branch={task_branch}")
+    except Exception as exc:
+        append_log_line(log_path, f"wiki sync failed for branch={task_branch}: {exc}")
+    finally:
+        remove_worktree(workdir, f"wiki-sync-{temp_id}")
+
+
+def build_librarian_prompt(run_id: str) -> str:
+    return "\n".join(
+        [
+            f"Run ID: {run_id}",
+            "",
+            "Librarian completion checklist:",
+            "1. Review all files in wiki/",
+            "2. Organize and improve wiki content",
+            f"3. Final required command for success: tasks --run-id {run_id} wiki-ready",
+            "4. Do not stop before step 3 has succeeded.",
+            "",
+            "Execution constraints:",
+            "- Do not modify files outside wiki/.",
+            "- Do not delete substantive content, only reorganize.",
+        ]
+    ).strip()
 
 
 if __name__ == "__main__":

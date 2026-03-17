@@ -1,5 +1,4 @@
-# model: o3
-# thinking: high
+model: gpt-5.4
 prompt: |
   You are a worker agent in a coding-agent orchestrator.
 

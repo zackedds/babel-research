@@ -59,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.add_argument("--offset", type=int, default=0)
 
     subparsers.add_parser("ready")
+    subparsers.add_parser("wiki-under-construction")
+    subparsers.add_parser("wiki-ready")
 
     note_append = subparsers.add_parser("note-append")
     note_append.add_argument("--id", required=True)
@@ -94,6 +96,10 @@ def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
         return command, {"view": args.view, "include_full": args.include_full, "limit": args.limit, "offset": args.offset}
     if command == "ready":
         return command, {}
+    if command == "wiki-under-construction":
+        return "wiki_under_construction", {}
+    if command == "wiki-ready":
+        return "wiki_ready", {}
     if command == "note-append":
         return "note_append", {"id": args.id, "note": args.note}
     if command == "assign":

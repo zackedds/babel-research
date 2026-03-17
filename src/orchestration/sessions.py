@@ -16,6 +16,7 @@ from .worktree import remove_worktree
 from ..runtime.runtimes import get_runtime
 from ..runtime.tmux import TmuxClient
 from ..tasks.store import tasks
+from ..utils.config import BabelConfig
 from ..utils.json_store import load_json, locked_json_store, write_json_atomic
 from ..utils.models import AgentSession, AgentSessionSpec
 from .state_paths import LEGACY_SESSIONS_PATH, session_log_path, sessions_file_path, tasks_file_path
@@ -93,6 +94,7 @@ class Orchestrator:
         self.root = root.resolve()
         self.roles_path = roles_path or self.root / "src" / "roles"
         self.state_dir = self.root / ".babel-agent"
+        self.config = BabelConfig.load(self.state_dir / "config.toml")
         self.run_id = run_id
         self.state_path = sessions_file_path(self.root, run_id)
         self.tmux = tmux_client or TmuxClient()
@@ -106,11 +108,14 @@ class Orchestrator:
     def create_session(self, spec: AgentSessionSpec) -> AgentSession:
         role = self._load_role(spec.role)
         runtime = get_runtime(spec.runtime)
+        override = self.config.get_role_override(spec.role)
+        effective_model = override.model or role.model
+        effective_thinking = override.thinking or role.thinking
         effective_command = list(runtime.startup_command)
-        if role.model:
-            effective_command.extend(["-m", role.model])
-        if role.thinking:
-            effective_command.extend(["--thinking", role.thinking])
+        if effective_model:
+            effective_command.extend(["-m", effective_model])
+        if effective_thinking:
+            effective_command.extend(["--thinking", effective_thinking])
         session_id = spec.session_id or self._new_session_id()
         tmux_session = spec.session_name or session_id
         role_prompt = render_role_prompt(role.prompt, spec.template_vars or {})
@@ -152,17 +157,28 @@ class Orchestrator:
             append_log_line(self.session_log_path(record.id), f"session launch failed: {message}")
             raise FileNotFoundError(message)
 
+        _max_launch_attempts = 5
         try:
             append_log_line(
                 self.session_log_path(record.id),
                 f"launching tmux session={tmux_session} workdir={record.workdir}",
             )
             pre_launch_time = datetime.now(UTC)
-            self.tmux.create_session(tmux_session, record.workdir, effective_command)
-            self.tmux.wait_until_ready(tmux_session, runtime.ready_strategy)
+            for attempt in range(1, _max_launch_attempts + 1):
+                self.tmux.create_session(tmux_session, record.workdir, effective_command)
+                try:
+                    self.tmux.wait_until_ready(tmux_session, runtime.ready_strategy)
+                    break
+                except Exception:
+                    self.tmux.kill_session(tmux_session)
+                    if attempt == _max_launch_attempts:
+                        raise
+                    append_log_line(
+                        self.session_log_path(record.id),
+                        f"session not ready after attempt {attempt}/{_max_launch_attempts}; restarting",
+                    )
             self.tmux.paste_and_submit(tmux_session, full_prompt)
-            # Codex creates rollout file only after receiving the first message
-            agent_log_file = _poll_for_agent_log_file(runtime.agent_logs_dir, pre_launch_time)
+            # agent_log_file will be back-filled by _start_log_file_scanner
         except Exception as exc:
             self.tmux.kill_session(tmux_session)
             failed = self._with_status(
@@ -177,13 +193,14 @@ class Orchestrator:
             append_log_line(self.session_log_path(record.id), traceback.format_exc().rstrip())
             raise
 
-        running = replace(self._with_status(record, "running"), agent_log_file=agent_log_file)
+        running = replace(self._with_status(record, "running"), agent_log_file=None)
         self._upsert(running)
         append_log_line(
             self.session_log_path(running.id),
             f"session running; watcher starting for tmux_session={running.tmux_session} agent_log_file={running.agent_log_file}",
         )
         self._watcher_launcher(self.root, self.run_id, running.id, running.tmux_session, runtime.ready_strategy.prompt_prefix)
+        self._start_log_file_scanner(running.id, runtime.agent_logs_dir, pre_launch_time)
         return running
 
     def get_session(self, session_id: str) -> AgentSession | None:
@@ -256,6 +273,40 @@ class Orchestrator:
                     f"reconciled stopped session without outcome because tmux session disappeared: {session.tmux_session}",
                 )
         return session
+
+    def _start_log_file_scanner(
+        self,
+        session_id: str,
+        logs_dir: Path | None,
+        after: datetime,
+        timeout_seconds: float = 120.0,
+    ) -> None:
+        if logs_dir is None:
+            return
+
+        def _scan() -> None:
+            found = _poll_for_agent_log_file(logs_dir, after, timeout_seconds=timeout_seconds)
+            if found is None:
+                append_log_line(
+                    self.session_log_path(session_id),
+                    f"log file scanner timed out after {timeout_seconds}s; agent_log_file remains null",
+                )
+                return
+
+            def _apply(sessions: dict) -> None:
+                session = sessions.get(session_id)
+                if session is None:
+                    return
+                sessions[session_id] = replace(session, agent_log_file=found)
+
+            with self._state_lock:
+                self._mutate_state(_apply)
+            append_log_line(
+                self.session_log_path(session_id),
+                f"log file scanner found agent_log_file={found}",
+            )
+
+        threading.Thread(target=_scan, daemon=True, name=f"log-scanner-{session_id}").start()
 
     def _upsert(self, session: AgentSession) -> None:
         with self._state_lock:
@@ -387,7 +438,7 @@ def _poll_for_agent_log_file(
 ) -> Path | None:
     if logs_dir is None:
         return None
-    d = after.date()
+    d = after.astimezone().date()
     date_dir = logs_dir / f"{d.year:04d}" / f"{d.month:02d}" / f"{d.day:02d}"
     threshold = after.timestamp()
     deadline = time.monotonic() + timeout_seconds
@@ -534,6 +585,12 @@ def _evaluate_completion(root: Path, run_id: str | None, session: AgentSession) 
         except Exception as exc:
             return "failed", f"worker session task lookup failed: {exc}", "watcher"
         if task_item.get("status") == "closed":
+            return "completed", None, None
+        return "pending", None, None
+
+    if session.role == "librarian":
+        task_state = tasks("list", path=store_path, view="all", include_full=True)["result"]
+        if task_state.get("status") == "wiki_ready":
             return "completed", None, None
         return "pending", None, None
 

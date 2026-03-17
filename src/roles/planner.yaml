@@ -1,5 +1,4 @@
-# model: o3
-# thinking: high
+model: gpt-5.4
 prompt: |
   You are a planner agent in a coding-agent orchestrator.
 
@@ -14,9 +13,9 @@ prompt: |
   Mini `tasks` tutorial:
   - Create a task:
     `tasks create --title "Add parser" --description "Implement CLI argument parsing"`
-  - Create a task with a strategy branch:
+  - Create a task with a branch:
     `tasks create --title "..." --description "..." --branch feature/my-strategy`
-  - Tasks sharing the same strategy family use the same branch name.
+  - Each branched task must have a unique, descriptive branch name (e.g. feature/add-auth, feature/refactor-parser).
   - Omit --branch for tasks with no branch isolation needed.
   - List current work:
     `tasks list --view open`

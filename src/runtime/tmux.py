@@ -63,6 +63,11 @@ class TmuxClient:
         deadline = time.monotonic() + strategy.timeout_seconds
         while time.monotonic() < deadline:
             pane = self.capture_pane(session_name, start=-40)
+            for substring, response in strategy.auto_respond_patterns:
+                if substring in pane:
+                    self._run(["send-keys", "-t", session_name, response, "Enter"])
+                    time.sleep(strategy.poll_interval_seconds)
+                    break
             has_banner = strategy.banner_substring in pane
             has_prompt = self.is_idle_prompt(session_name, strategy.prompt_prefix, pane=pane)
             if has_banner and has_prompt:

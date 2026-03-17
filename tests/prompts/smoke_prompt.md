@@ -17,7 +17,8 @@ The target repo is a small Python project. Create exactly 4 tasks in two waves a
   def subtract(a, b): return a - b
   def multiply(a, b): return a * b
   ```
-  After writing the file, stage and commit it on your sub-branch, then **merge your sub-branch into `feature/calculator`** (`git checkout feature/calculator && git merge --no-ff <your-sub-branch>`) before closing the task.
+  After writing the file, stage and commit it on `feature/calculator`.
+  Then create `wiki/calculator.md` documenting the module: its purpose, the three functions, and their signatures. Stage and commit the wiki file.
 
 ### Task 2
 - Title: `Create greeter module`
@@ -30,27 +31,30 @@ The target repo is a small Python project. Create exactly 4 tasks in two waves a
   def greet(name): return f"Hello, {name}!"
   def farewell(name): return f"Goodbye, {name}!"
   ```
-  After writing the file, stage and commit it on your sub-branch, then **merge your sub-branch into `feature/greeter`** (`git checkout feature/greeter && git merge --no-ff <your-sub-branch>`) before closing the task.
+  After writing the file, stage and commit it on `feature/greeter`.
+  Then create `wiki/greeter.md` documenting the module: its purpose, the two functions, and their signatures. Stage and commit the wiki file.
 
 ---
 
 ## Wave 2 — two tasks that build on the wave-1 branches
 
-These tasks depend on their wave-1 counterparts (use `dep-add` to link them). Each worker will receive the wave-1 merged code because its sub-branch is cut from the strategy branch after wave 1 has merged.
+These tasks depend on their wave-1 counterparts (use `dep-add` to link them).
 
 ### Task 3
 - Title: `Add division to calculator`
 - Branch: `feature/calculator`
 - Depends on: task-1
 - Description:
-  Read `calculator.py` on this branch. Add a `divide(a, b)` function that returns `a / b` and raises `ValueError("Cannot divide by zero")` when `b == 0`. Stage and commit. **Merge your sub-branch into `feature/calculator`** before closing the task.
+  Read `calculator.py` on this branch. Add a `divide(a, b)` function that returns `a / b` and raises `ValueError("Cannot divide by zero")` when `b == 0`. Stage and commit.
+  Then update `wiki/calculator.md` to document the new `divide` function. Stage and commit the wiki update.
 
 ### Task 4
 - Title: `Add shout to greeter`
 - Branch: `feature/greeter`
 - Depends on: task-2
 - Description:
-  Read `greeter.py` on this branch. Add a `shout(name)` function that returns `f"HELLO, {name.upper()}!"`. Stage and commit. **Do NOT merge into `feature/greeter`** — leave your work only on your private sub-branch and close the task without merging.
+  Read `greeter.py` on this branch. Add a `shout(name)` function that returns `f"HELLO, {name.upper()}!"`. Stage and commit.
+  Then update `wiki/greeter.md` to document the new `shout` function. Stage and commit the wiki update.
 
 ---
 
