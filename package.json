@@ -1,0 +1,7 @@
+{
+  "name": "babel-research",
+  "private": true,
+  "workspaces": [
+    "src/tui/activity-feed"
+  ]
+}

@@ -11,6 +11,7 @@ from ..orchestration.runs import RunStore
 from ..orchestration.sessions import Orchestrator
 from ..runtime.activity import activity_snapshot
 from ..runtime.inspect import inspect_run
+from .grid import run_grid
 
 
 def _repo_root() -> Path:
@@ -35,6 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     kill = subparsers.add_parser("kill")
     kill.add_argument("run_id", help="Run id to kill")
+
+    grid = subparsers.add_parser("grid")
+    grid.add_argument("--run-id", help="Run id to monitor; defaults to the active run")
     return parser
 
 
@@ -118,7 +122,7 @@ def kill_run(run_id: str, cwd: Path) -> dict[str, object]:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] not in {"run", "inspect", "activity", "kill", "-h", "--help"}:
+    if argv and argv[0] not in {"run", "inspect", "activity", "kill", "grid", "-h", "--help"}:
         argv = ["run", *argv]
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -135,6 +139,9 @@ def main(argv: list[str] | None = None) -> int:
             result = run_activity(Path.cwd(), run_id=args.run_id, snapshot=args.snapshot)
         elif args.command == "kill":
             result = kill_run(args.run_id, Path.cwd())
+        elif args.command == "grid":
+            run_grid(Path.cwd(), run_id=args.run_id)
+            return 0
         else:
             result = {"ok": True, "op": "inspect", "result": inspect_run(Path.cwd(), run_id=args.run_id)}
     except Exception as exc:
@@ -147,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run":
         run_id = result["run_id"]
         print(f"{run_id} run started")
-        print(f"Monitor run with: bab activity {run_id}")
+        print(f"Monitor run with: bab activity")
         return 0
 
     if args.command == "kill":

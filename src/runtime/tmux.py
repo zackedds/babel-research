@@ -152,7 +152,7 @@ class TmuxClient:
         with lock:
             self._run(["set-buffer", "-b", buffer_name, "--", text])
             try:
-                self._run(["paste-buffer", "-t", session_name, "-b", buffer_name])
+                self._run(["paste-buffer", "-p", "-t", session_name, "-b", buffer_name])
                 time.sleep(0.2)
                 self._run(["send-keys", "-t", session_name, "Enter"])
             finally:

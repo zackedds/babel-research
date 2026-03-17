@@ -1,39 +1,47 @@
+## Setup
 This project requires Python 3.11 or newer.
 
 Sync the project environment with `uv`:
-
 ```bash
 uv sync
 ```
 
-Run the CLIs through `uv` from the repository root:
-
+Install OpenTUI dependencies:
 ```bash
-uv run bab PROMPT_FILE
-uv run tasks get --id task-3
-```
-
-Install the OpenTUI dependencies for the activity feed once with:
-
-```bash
-cd src/tui/activity-feed
 bun install
 ```
 
-Then launch the activity feed from the repository root with:
-
+To make the `bab` cli tool accessible, symlink `bab` onto your PATH so it's accessible from any directory:
 ```bash
-uv run bab activity
+ln -s "$(pwd)/.venv/bin/bab" ~/.local/bin/bab
+```
+Assumes that ~/.local/bin is on your $PATH (standard on Linux/macOS; add export PATH="$HOME/.local/bin:$PATH" to your shell rc if not) 
+   
+## Using bab cli
+Launch a run in any working directory with a prompt file:
+```bash
+bab --max-rounds 2 --max-workers 5 prompt.md
 ```
 
-Each new orchestration run now gets its own state directory under `.babel-agent/runs/<run-id>/`
-with `run.json`, `sessions.json`, and `tasks.json`. The root `.babel-agent/index.json`
-tracks the latest/active run so `uv run tasks ...` still resolves to the active run by default.
-
-Run the test suite from the repository root with:
-
+Launch the activity feed TUI with:
 ```bash
-uv run python -m unittest
+bab activity
 ```
 
-The `tests/` directory is packaged for default `unittest` discovery, so this command should execute the repository suite rather than returning a misleading `Ran 0 tests`.
+Launch a grid of active tmux sessions with (wip currently point in time):
+```bash
+bab grid
+```
+
+Kill a run with:
+```bash
+bab kill [run_id]
+```
+
+## Testing
+Primary end-to-end smoke test:
+- Create smoke test directory: ```./tests/smoke_repo/setup.sh```
+- Run smoke test: ```cd ~/babel-smoke && bab run --max-rounds 2 --max-workers 2 path_to//babel-research/tests/prompts/smoke_prompt.md```
+
+## Run and session tracking
+Each new orchestration run gets its own state directory under `.babel-agent/runs/<run-id>/` with `run.json`, `sessions.json`, and `tasks.json`. The root `.babel-agent/index.json` tracks the latest/active run.
