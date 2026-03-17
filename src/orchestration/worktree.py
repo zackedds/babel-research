@@ -23,6 +23,26 @@ def ensure_branch(repo_root: Path, branch: str) -> None:
 
 def create_worktree(repo_root: Path, session_id: str, branch: str) -> Path:
     """Create a worktree for <branch> at .worktrees/<session_id>."""
+    # Prune stale worktree refs first
+    subprocess.run(["git", "worktree", "prune"], capture_output=True, cwd=repo_root)
+    # Remove any existing worktree checked out on this branch
+    list_result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+    )
+    current_path: str | None = None
+    for line in list_result.stdout.splitlines():
+        if line.startswith("worktree "):
+            current_path = line.split(" ", 1)[1]
+        elif line.startswith("branch ") and line.endswith(f"/{branch}"):
+            if current_path and current_path != str(repo_root):
+                subprocess.run(
+                    ["git", "worktree", "remove", "--force", current_path],
+                    capture_output=True,
+                    cwd=repo_root,
+                )
     worktree_path = repo_root / ".worktrees" / session_id
     subprocess.run(
         ["git", "worktree", "add", str(worktree_path), branch],

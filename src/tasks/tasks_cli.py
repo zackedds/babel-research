@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--description", required=True)
     create.add_argument("--client-id")
     create.add_argument("--branch", default=None)
+    create.add_argument("--notes", default=None)
 
     get = subparsers.add_parser("get")
     get.add_argument("--id", required=True)
@@ -73,6 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
     dep_add.add_argument("--blocker-id", required=True)
     dep_add.add_argument("--blocked-id", required=True)
 
+    catalog = subparsers.add_parser("catalog")
+    catalog.add_argument("--id", required=True)
+    catalog.add_argument("--paths", nargs="+", required=True)
+
     close = subparsers.add_parser("close")
     close.add_argument("--id", required=True)
     close.add_argument("--reason", default="")
@@ -87,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
 def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
     command = args.command
     if command == "create":
-        return command, {"title": args.title, "description": args.description, "client_id": args.client_id, "branch": args.branch}
+        return command, {"title": args.title, "description": args.description, "client_id": args.client_id, "branch": args.branch, "notes": args.notes}
     if command == "get":
         return command, {"id": args.id}
     if command == "update":
@@ -106,6 +111,8 @@ def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
         return command, {"id": args.id}
     if command == "dep-add":
         return "dep_add", {"blocker_id": args.blocker_id, "blocked_id": args.blocked_id}
+    if command == "catalog":
+        return command, {"id": args.id, "paths": args.paths}
     if command == "close":
         return command, {"id": args.id, "reason": args.reason}
     if command == "delete":

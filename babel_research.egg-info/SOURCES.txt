@@ -27,6 +27,7 @@ src/tasks/store.py
 src/tasks/tasks_cli.py
 src/tui/activity-feed/node_modules/shell-quote/print.py
 src/utils/__init__.py
+src/utils/config.py
 src/utils/json_store.py
 src/utils/models.py
 tests/test_activity.py

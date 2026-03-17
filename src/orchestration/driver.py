@@ -20,6 +20,56 @@ from .worktree import create_worktree, ensure_branch, remove_worktree
 POLL_INTERVAL_SECONDS = 0.2
 
 
+def _parse_frontmatter(text: str) -> dict[str, str]:
+    """Parse YAML frontmatter from a markdown file (key: value lines between --- delimiters)."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    result: dict[str, str] = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if ":" in line:
+            key, _, value = line.partition(":")
+            result[key.strip()] = value.strip()
+    return result
+
+
+def build_wiki_toc(wiki_root: Path, max_depth: int = 3) -> list[dict]:
+    """Walk wiki_root up to max_depth levels; return nested list of dicts for dirs with MAIN.md."""
+
+    def _walk(directory: Path, depth: int) -> list[dict]:
+        if depth > max_depth:
+            return []
+        entries = []
+        try:
+            children = sorted(p for p in directory.iterdir() if p.is_dir())
+        except PermissionError:
+            return []
+        for child in children:
+            main_md = child / "MAIN.md"
+            if not main_md.exists():
+                continue
+            try:
+                fm = _parse_frontmatter(main_md.read_text(encoding="utf-8"))
+            except OSError:
+                fm = {}
+            rel_path = child.relative_to(wiki_root)
+            entries.append(
+                {
+                    "path": str(rel_path),
+                    "name": fm.get("name", child.name),
+                    "description": fm.get("description", ""),
+                    "entries": _walk(child, depth + 1),
+                }
+            )
+        return entries
+
+    if not wiki_root.is_dir():
+        return []
+    return _walk(wiki_root, 1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m src.orchestration.driver")
     parser.add_argument("--root", required=True)
@@ -141,6 +191,10 @@ def run_orchestration_loop(
                         task_description=str(assigned.get("description", "")).strip() or None,
                         session_id=session_id,
                         worktree_path=worktree_path,
+                        template_vars={
+                            "task": assigned,
+                            "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
+                        },
                     )
                 )
                 append_log_line(
@@ -176,9 +230,21 @@ def run_orchestration_loop(
                     task_item = tasks("get", path=run_tasks_path, id=worker.task_id)["result"]
                     branch = str(task_item.get("branch", "")).strip()
                     if branch:
-                        _merge_wiki_from_worker(run.workdir, worker, branch, log_path)
+                        wiki_paths = _merge_wiki_from_worker(run.workdir, worker, branch, log_path)
+                        if wiki_paths:
+                            orchestrator._upsert(replace(worker, wiki_file_paths=wiki_paths))
             tasks("wiki_under_construction", path=run_tasks_path)
             round_index = run.rounds_completed + 1
+            closed_tasks = tasks("list", path=run_tasks_path, view="closed", include_full=True)["result"]["tasks"]
+            all_sessions = {s.task_id: s for s in orchestrator.list_sessions() if s.task_id}
+            template_tasks = [
+                {
+                    "description": t["description"],
+                    "status": t["status"],
+                    "wiki_paths": list(getattr(all_sessions.get(t["id"]), "wiki_file_paths", None) or []),
+                }
+                for t in closed_tasks
+            ]
             librarian = orchestrator.create_session(
                 AgentSessionSpec(
                     role="librarian",
@@ -186,6 +252,12 @@ def run_orchestration_loop(
                     session_prompt=build_librarian_prompt(run.id),
                     workdir=run.workdir,
                     round_index=round_index,
+                    template_vars={
+                        "max_workers": run.max_workers if run.max_workers is not None else "unlimited",
+                        "tasks": template_tasks,
+                        "user_prompt": run.initial_prompt,
+                        "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
+                    },
                 )
             )
             append_log_line(log_path, f"librarian session created session_id={librarian.id} round={round_index}")
@@ -236,14 +308,32 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
         last = orchestrator.get_session(run.planner_session_ids[-1])
         if last is not None and last.status in {"running", "starting"}:
             return run
-    tasks("prepare", path=tasks_file_path(orchestrator.root, run.id))
+    run_tasks_path = tasks_file_path(orchestrator.root, run.id)
+    tasks("prepare", path=run_tasks_path)
+
+    closed_tasks = tasks("list", path=run_tasks_path, view="closed", include_full=True)["result"]["tasks"]
+    all_sessions = {s.task_id: s for s in orchestrator.list_sessions() if s.task_id}
+    template_tasks = [
+        {
+            "description": t["description"],
+            "status": t["status"],
+            "wiki_paths": list(getattr(all_sessions.get(t["id"]), "wiki_file_paths", None) or []),
+        }
+        for t in closed_tasks
+    ]
+
     planner = orchestrator.create_session(
         AgentSessionSpec(
             role="planner",
             runtime="codex",
             session_prompt=build_planner_prompt(run.initial_prompt, run.id),
             workdir=run.workdir,
-            template_vars={"max_workers": run.max_workers if run.max_workers is not None else "unlimited"},
+            template_vars={
+                "max_workers": run.max_workers if run.max_workers is not None else "unlimited",
+                "tasks": template_tasks,
+                "user_prompt": run.initial_prompt,
+                "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
+            },
             round_index=run.rounds_completed + 1,
         )
     )
@@ -363,7 +453,7 @@ def _ensure_wiki_dir(workdir: Path) -> None:
         )
 
 
-def _merge_wiki_from_worker(workdir: Path, session: AgentSession, task_branch: str, log_path: Path) -> None:
+def _merge_wiki_from_worker(workdir: Path, session: AgentSession, task_branch: str, log_path: Path) -> tuple[str, ...]:
     """Checkout wiki/ from task_branch onto main (workdir). Commit if changed."""
     result = subprocess.run(
         ["git", "checkout", task_branch, "--", "wiki/"],
@@ -372,14 +462,21 @@ def _merge_wiki_from_worker(workdir: Path, session: AgentSession, task_branch: s
     )
     if result.returncode != 0:
         append_log_line(log_path, f"wiki merge skipped for session={session.id} branch={task_branch}: {result.stderr.decode().strip()}")
-        return
+        return ()
     status = subprocess.run(
         ["git", "status", "--porcelain", "wiki/"],
         capture_output=True,
         text=True,
         cwd=workdir,
     )
+    changed_paths: tuple[str, ...] = ()
     if status.returncode == 0 and status.stdout.strip():
+        lines = status.stdout.strip().splitlines()
+        changed_paths = tuple(
+            line[3:].strip()
+            for line in lines
+            if len(line) > 3 and line[:2].strip() not in ("D", "DD")
+        )
         subprocess.run(["git", "add", "wiki/"], capture_output=True, check=True, cwd=workdir)
         subprocess.run(
             ["git", "commit", "-m", f"wiki: merge from {session.task_id}"],
@@ -390,6 +487,7 @@ def _merge_wiki_from_worker(workdir: Path, session: AgentSession, task_branch: s
         append_log_line(log_path, f"wiki merge committed for session={session.id} branch={task_branch}")
     else:
         append_log_line(log_path, f"wiki merge: no wiki changes for session={session.id} branch={task_branch}")
+    return changed_paths
 
 
 def _sync_wiki_to_branch(workdir: Path, task_branch: str, log_path: Path) -> None:
@@ -439,11 +537,12 @@ def build_librarian_prompt(run_id: str) -> str:
             "Librarian completion checklist:",
             "1. Review all files in wiki/",
             "2. Organize and improve wiki content",
-            f"3. Final required command for success: tasks --run-id {run_id} wiki-ready",
-            "4. Do not stop before step 3 has succeeded.",
+            f"3. For each task, call: tasks --run-id {run_id} catalog --id <task-id> --paths <canonical library/... paths>",
+            f"4. Final required command for success: tasks --run-id {run_id} wiki-ready",
+            "5. Do not stop before step 4 has succeeded.",
             "",
             "Execution constraints:",
-            "- Do not modify files outside wiki/.",
+            "- Do not modify files outside wiki/. Running tasks CLI commands is required and permitted.",
             "- Do not delete substantive content, only reorganize.",
         ]
     ).strip()

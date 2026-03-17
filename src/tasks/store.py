@@ -84,6 +84,7 @@ def _full_task(task: dict[str, Any], tasks: dict[str, dict[str, Any]]) -> dict[s
         "close_reason": task.get("close_reason", ""),
         "client_id": task.get("client_id", ""),
         "branch": task.get("branch", ""),
+        "wiki_file_paths": list(task.get("wiki_file_paths", [])),
     }
 
 
@@ -140,6 +141,8 @@ def tasks(op: str, *, path: Path = DEFAULT_TASKS_PATH, **kwargs: Any) -> dict[st
             data["next_id"] += 1
             now = _utc_now()
             branch = kwargs.get("branch", "")
+            notes_text = kwargs.get("notes")
+            initial_notes = [{"ts": now, "text": notes_text}] if notes_text else []
             task = {
                 "id": task_id,
                 "title": title,
@@ -147,7 +150,7 @@ def tasks(op: str, *, path: Path = DEFAULT_TASKS_PATH, **kwargs: Any) -> dict[st
                 "status": "open",
                 "created_at": now,
                 "updated_at": now,
-                "notes": [],
+                "notes": initial_notes,
                 "blockers": [],
                 "blocked": [],
                 "close_reason": "",
@@ -245,6 +248,19 @@ def tasks(op: str, *, path: Path = DEFAULT_TASKS_PATH, **kwargs: Any) -> dict[st
             now = _utc_now()
             task.setdefault("notes", []).append({"ts": now, "text": note})
             task["updated_at"] = now
+            _tasks_save(path, data)
+            return {"ok": True, "op": op, "result": _full_task(task, table)}
+
+        if op == "catalog":
+            task_id = kwargs.get("id")
+            paths = kwargs.get("paths")
+            if not task_id:
+                raise ValueError("catalog requires id")
+            if paths is None:
+                raise ValueError("catalog requires paths")
+            task = require_task(task_id)
+            task["wiki_file_paths"] = list(paths)
+            task["updated_at"] = _utc_now()
             _tasks_save(path, data)
             return {"ok": True, "op": op, "result": _full_task(task, table)}
 

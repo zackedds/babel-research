@@ -68,6 +68,7 @@ class AgentSession:
     last_observed_at: datetime | None = None
     agent_log_file: Path | None = None
     worktree_path: Path | None = None
+    wiki_file_paths: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)

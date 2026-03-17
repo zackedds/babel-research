@@ -7,6 +7,8 @@ import sys
 import threading
 import time
 import traceback
+
+import jinja2
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -77,6 +79,7 @@ def _deserialize_sessions(raw: dict[str, object]) -> dict[str, AgentSession]:
                 else None
             ),
             worktree_path=Path(item["worktree_path"]) if item.get("worktree_path") else None,
+            wiki_file_paths=tuple(item["wiki_file_paths"]) if item.get("wiki_file_paths") else None,
         )
     return sessions
 
@@ -427,6 +430,7 @@ class Orchestrator:
             last_observed_at=datetime.now(UTC),
             agent_log_file=session.agent_log_file,
             worktree_path=session.worktree_path,
+            wiki_file_paths=session.wiki_file_paths,
         )
 
 
@@ -456,10 +460,8 @@ def build_full_prompt(role_prompt: str, session_prompt: str) -> str:
 
 
 def render_role_prompt(role_prompt: str, template_vars: dict[str, object]) -> str:
-    rendered = role_prompt
-    for key, value in template_vars.items():
-        rendered = rendered.replace(f"{{{{{key}}}}}", str(value))
-    return rendered
+    env = jinja2.Environment(keep_trailing_newline=True)
+    return env.from_string(role_prompt).render(**template_vars)
 
 
 def spawn_completion_watcher(root: Path, run_id: str | None, session_id: str, tmux_session: str, prompt_prefix: str) -> None:
