@@ -38,6 +38,7 @@ prompt: |
     Rules for writing the wiki file:
     - You MUST include:
       - Branch name and commit hash of your final code post-merge
+      - Merged or not merged status
       - Question you're answering and its motivation.
       - Cite code file paths
     - Actively reflect on your findings. Explicitly ask yourself the following questions and include them in your wiki file output:

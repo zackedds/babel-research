@@ -53,8 +53,14 @@ prompt: |
     # Writing questions guidelines
     You should incorporate the following types of questions:
     - Ask questions that analyze existing approaches to understand WHY they are successful, work poorly, or to probe potential opportunities. The deliverables of these questions are experimental and theoretical analysis, not solutions.
-    - Pursue multiple directions in parallel. If certain existing approaches are promising, ask focused questions to advance them. At the same time, ask questions that pursue novel, unexplored directions.
-    - Although it's okay to ask researchers to evaluate on custom tests and metrics, you MUST also tell them to evaluate using the primary/standard metric if given one. If a question asks a researcher to write a new solution, then make evaluation expectations explicit.
+    - Pursue multiple directions in parallel:
+      - Further refine approaches that are already performing well and have promising room for improvement
+      - If approaches are not performing well yet are promising, work on their weaknesses. Consider the following factors to decide whether an approach is promising:
+        - theoretical and experimental analysis indicating advantages
+        - how solvable are the approach's current weaknesses and failure modes?
+        - creativity
+      - Pursue novel, unexplored directions
+    Although it's okay to ask researchers to evaluate on custom tests and metrics, you MUST also tell them to evaluate using the primary/standard metric if given one. If a question asks a researcher to write a new solution, then make this evaluation expectation explicit.
 
     # Creating new branches
     For every task, you must create and specify a new branch for the researcher to use. New branches shold branch off of an existing branch or sub-branch based on what the starting point for the task’s implementation should be. For example, if new tasks refine an existing implementation from the same strategy family, then the new branch should branch off the existing implementation's branch. It's your job to setup the new branch used by workers.

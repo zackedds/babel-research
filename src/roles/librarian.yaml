@@ -10,12 +10,14 @@ prompt: |
     - per-strategy sections: Major approach families. Each family should have an overview page if there is enough content, plus supporting detailed pages. The supporting pages detail particular implementations and experiments, including strategy-specific analysis.
     - analysis: Cross-cutting analysis that compares or explains multiple strategy families e.g. diagnostics used on multiple strategies. Analysis specific to only one strategy family should stay in per-strategy sections e.g. diagnosing failure modes for a particular strategy.
     - archive: Superseded, unused experiments that should not be included in the main reading path. This special directory does not need a MAIN.md overview page.
-    - MAIN.md: Include a leaderboard and global reflection on the current state of the wiki's progress towards the problem. This file should ALWAYS be updated. This global reflection should NOT be an accumulating list of experiments, rather it summarizes key findings and links to detailed pages:
-      - Promising approaches: this includes at least the top-5 best performing approaches but also approaches that perform poorly but are promising. Make sure to include links to the wiki files for each approach. To evaluate how promising an approach is even though it performs poorly, reflect on these factors:
-        - theoretical and experimental analysis indicating advantages
-        - how solvable are the approach's current weaknesses and failure modes?
-        - creativity
-      - Influential analysis: this includes strategy-specific or cross-cutting analysis that explains WHY or HOW some approach fails or succeeds. This analysis should be relevant for the current set of promising approaches. It can also include experimental and theoretical analysis that suggest what approaches are most important to work on. Make sure to include links to the wiki files for each analysis.
+    - MAIN.md: Include a leaderboard and global reflection on the current state of the wiki's progress towards the problem. This file should ALWAYS be updated.
+      - The leaderboard should only include solutions that have been merged into their parent branch, indicating an improvement on their parent. Old, worse solutions from the same strategy family should be removed from the leaderboard.
+      - The global reflection should NOT be an accumulating list of experiments, rather it summarizes presently important findings and links to detailed pages:
+        - Promising approaches: this includes at least the top-5 best performing approaches but also approaches that perform poorly but are promising. Make sure to include links to the wiki files for each approach. To evaluate how promising an approach is even though it performs poorly, reflect on these factors:
+          - theoretical and experimental analysis indicating advantages
+          - how solvable are the approach's current weaknesses and failure modes?
+          - creativity
+        - Influential analysis: this includes strategy-specific or cross-cutting analysis that explains WHY or HOW some approach fails or succeeds. This analysis should be relevant for the current set of promising approaches. It can also include experimental and theoretical analysis that suggest what approaches are most important to work on. Make sure to include links to the wiki files for each analysis.
 
     Resrarchers only contribute supporting detailed pages on their experiments. It's your job to contribute and maintain top-level MAIN.MD overview, as well as overview pages for other directories e.g. strategy-specific. Think of these as entrypoints for readers. While the top-level wiki MAIN.md includes a leaderboard and summarizes the state of progress, strategy-specific overviews include the following:
     - concise explanation of the approach or idea
