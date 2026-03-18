@@ -182,7 +182,7 @@ def run_orchestration_loop(
                 worker = orchestrator.create_session(
                     AgentSessionSpec(
                         role="worker",
-                        runtime="codex",
+                        runtime=orchestrator.config.agent_runtime,
                         session_prompt=session_prompt,
                         workdir=effective_workdir,
                         round_index=round_index,
@@ -248,7 +248,7 @@ def run_orchestration_loop(
             librarian = orchestrator.create_session(
                 AgentSessionSpec(
                     role="librarian",
-                    runtime="codex",
+                    runtime=orchestrator.config.agent_runtime,
                     session_prompt=build_librarian_prompt(run.id),
                     workdir=run.workdir,
                     round_index=round_index,
@@ -322,10 +322,13 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
         for t in closed_tasks
     ]
 
+    baseline_context_path = Path(run.workdir) / "baseline_context.md"
+    baseline_context = baseline_context_path.read_text(encoding="utf-8") if (not template_tasks and baseline_context_path.exists()) else ""
+
     planner = orchestrator.create_session(
         AgentSessionSpec(
             role="planner",
-            runtime="codex",
+            runtime=orchestrator.config.agent_runtime,
             session_prompt=build_planner_prompt(run.initial_prompt, run.id),
             workdir=run.workdir,
             template_vars={
@@ -333,6 +336,7 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
                 "tasks": template_tasks,
                 "user_prompt": run.initial_prompt,
                 "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
+                "baseline_context": baseline_context,
             },
             round_index=run.rounds_completed + 1,
         )

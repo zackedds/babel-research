@@ -1,0 +1,95 @@
+[
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc008.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 183454030,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc008",
+    "raw_output": "{\n  \"code_path\": \"/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc008.cpp\",\n  \"language\": \"cpp23\",\n  \"overall_absolute_score\": 183454030,\n  \"overall_judge_result\": \"JudgeResult.ACCEPTED\",\n  \"overall_relative_score\": null,\n  \"problem_id\": \"ahc008\"\n}\n\nWarning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc011.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 21465951,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc011",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc015.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 34954179,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc015",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc016.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 690445496,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc016",
+    "raw_output": "{\n  \"code_path\": \"/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc016.cpp\",\n  \"language\": \"cpp23\",\n  \"overall_absolute_score\": 690445496,\n  \"overall_judge_result\": \"JudgeResult.ACCEPTED\",\n  \"overall_relative_score\": null,\n  \"problem_id\": \"ahc016\"\n}\n\nWarning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc024.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 95782,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc024",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc025.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 190687459,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc025",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc026.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 462845,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc026",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc027.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 450292454,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc027",
+    "raw_output": "{\n  \"code_path\": \"/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc027.cpp\",\n  \"language\": \"cpp23\",\n  \"overall_absolute_score\": 450292454,\n  \"overall_judge_result\": \"JudgeResult.ACCEPTED\",\n  \"overall_relative_score\": null,\n  \"problem_id\": \"ahc027\"\n}\n\nWarning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc039.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 186256,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc039",
+    "returncode": 0
+  },
+  {
+    "code_path": "/home/yvirk2/discovery-agents/Discovery-Agent/tasks/ale-bench/ale_agent_best/ahc046.cpp",
+    "language": "cpp23",
+    "overall_absolute_score": 72434,
+    "overall_judge_result": "JudgeResult.ACCEPTED",
+    "overall_relative_score": null,
+    "problem_id": "ahc046",
+    "returncode": 0
+  }
+]

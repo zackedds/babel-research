@@ -9,6 +9,13 @@ description = "Simple tmux-backed coding agent orchestrator"
 requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
 ]
 
 [project.scripts]
@@ -26,3 +33,8 @@ include = ["src", "src.*"]
 
 [tool.uv]
 package = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

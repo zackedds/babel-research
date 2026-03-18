@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 *.egg-info/
 .worktrees/
+tests/smoke_out/
+environments/ale_bench_lite/out_logs/

@@ -29,6 +29,11 @@ prompt: |
     No tasks completed yet. This is a fresh start.
     {% endif %}
 
+    {% if baseline_context %}
+    # Baseline
+    {{ baseline_context }}
+    {% endif %}
+
     # Research problem
     <problem_definition>
     {{user_prompt}}

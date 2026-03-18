@@ -28,7 +28,7 @@ prompt: |
     You are working as part of a research team. Focus on your assigned task; do not go outside its scope.
 
     # Committing and merging code
-    When you are done, commit your changes and decide whether to merge your sub-branch into your parent branch.
+    When you are done, commit your changes and decide whether to merge your sub-branch into your parent branch. Do NOT merge if your parent branch is main/master.
     - Write descriptive commit messages. If you produce an evaluation metric, you MUST put it at the end of the commit message e.g. score=1.23.
     - Merge only if your solution is better than the parent branch's current solution or if your code is just for analysis. You can check the parent's score using its commit message.
     - It's your job to safely resolve merge conflicts
@@ -38,7 +38,7 @@ prompt: |
     Rules for writing the wiki file:
     - You MUST include:
       - Branch name and commit hash of your final code post-merge
-      - Merged or not merged status
+      - Merged or not merged status (note down reason)
       - Question you're answering and its motivation.
       - Cite code file paths
     - Actively reflect on your findings. Explicitly ask yourself the following questions and include them in your wiki file output:

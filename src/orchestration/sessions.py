@@ -119,6 +119,7 @@ class Orchestrator:
             effective_command.extend(["-m", effective_model])
         if effective_thinking:
             effective_command.extend(["--thinking", effective_thinking])
+
         session_id = spec.session_id or self._new_session_id()
         tmux_session = spec.session_name or session_id
         role_prompt = render_role_prompt(role.prompt, spec.template_vars or {})
@@ -147,7 +148,7 @@ class Orchestrator:
             f"session created role={record.role} tmux_session={record.tmux_session} round={record.round_index} task_id={record.task_id}",
         )
 
-        if shutil.which(runtime.startup_command[0]) is None:
+        if shutil.which(effective_command[0]) is None:
             message = f"runtime binary not found: {runtime.startup_command[0]}"
             failed = self._with_status(
                 record,

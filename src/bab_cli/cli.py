@@ -11,6 +11,7 @@ from ..orchestration.runs import RunStore
 from ..orchestration.sessions import Orchestrator
 from ..runtime.activity import activity_snapshot
 from ..runtime.inspect import inspect_run
+from ..utils.config import BabelConfig
 from .grid import run_grid
 
 
@@ -47,6 +48,25 @@ def _positive_int(value: str) -> int:
     if parsed <= 0:
         raise argparse.ArgumentTypeError("value must be a positive integer")
     return parsed
+
+
+def _ensure_codex_trusted(cwd: Path) -> bool:
+    """Ensure cwd is trusted in ~/.codex/config.toml. Returns True if config was modified."""
+    import tomllib
+
+    config_path = Path.home() / ".codex" / "config.toml"
+    cwd_str = str(cwd.resolve())
+
+    if config_path.exists():
+        with config_path.open("rb") as f:
+            data = tomllib.load(f)
+        if data.get("projects", {}).get(cwd_str, {}).get("trust_level") == "trusted":
+            return False
+
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with config_path.open("a") as f:
+        f.write(f'\n[projects."{cwd_str}"]\ntrust_level = "trusted"\n')
+    return True
 
 
 def run_file(
@@ -129,6 +149,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "run":
+            babel_config = BabelConfig.load(Path.cwd() / ".babel-agent" / "config.toml")
+            trusted_added = (
+                babel_config.agent_runtime == "codex"
+                and _ensure_codex_trusted(Path.cwd())
+            )
             result = run_file(
                 Path(args.prompt_file),
                 Path.cwd(),
@@ -154,6 +179,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run":
         run_id = result["run_id"]
         print(f"{run_id} run started")
+        if trusted_added:
+            print(f"Added {Path.cwd()} as trusted in ~/.codex/config.toml")
         print(f"Monitor run with: bab activity")
         return 0
 

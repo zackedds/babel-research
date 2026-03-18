@@ -1,0 +1,81 @@
+problem_limits:
+    ahc008:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc011:
+        time_limit: "3 sec"
+        memory_limit: "1024 MiB"
+    ahc015:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc016:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc024:
+        time_limit: "5 sec"
+        memory_limit: "1024 MiB"
+    ahc025:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc026:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc027:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc039:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+    ahc046:
+        time_limit: "2 sec"
+        memory_limit: "1024 MiB"
+
+initial_solution_public_scores:
+    ahc008: 183454030
+    ahc011: 21465951
+    ahc015: 34954179
+    ahc016: 690445496
+    ahc024: 95782
+    ahc025: 190687459
+    ahc026: 462845
+    ahc027: 450292454
+    ahc039: 186256
+    ahc046: 72434
+
+allowed_languages: "C++20 (gcc 12.2.0), Python3 (CPython 3.11.4), Rust (rustc 1.70.0)"
+allowed_cpp_libraries: "AC Library@1.5.1, Boost@1.82.0, GMP@6.2.1, Eigen@3.4.0-2ubuntu2"
+allowed_python_libraries: "numpy==1.24.1, scipy==1.10.1, networkx==3.0, sympy==1.11.1, sortedcontainers==2.4.0, more-itertools==9.0.0, shapely==2.0.0, bitarray==2.6.2, PuLP==2.7.0, mpmath==1.2.1, pandas==1.5.2, z3-solver==4.12.1.0, scikit-learn==1.2.0, ortools==9.5.2237, ac-library-python, setuptools==66.0.0, cppyy==2.4.1, torch==1.13.1+cpu, polars==0.15.15, lightgbm==3.3.1, gmpy2==2.1.5, numba==0.57.0"
+allowed_rust_libraries: "ac-library-rs@=0.1.1, once_cell@=1.18.0, static_assertions@=1.1.0, varisat@=0.2.2, memoise@=0.3.2, argio@=0.2.0, bitvec@=1.0.1, counter@=0.5.7, hashbag@=0.1.11, pathfinding@=4.3.0, recur-fn@=2.2.0, indexing@=0.4.1, amplify@=3.14.2, amplify_derive@=2.11.3, amplify_num@=0.4.1, easy-ext@=1.0.1, multimap@=0.9.0, btreemultimap@=0.1.1, bstr@=1.6.0, az@=1.2.1, glidesort@=0.1.2, tap@=1.0.1, omniswap@=0.1.0, multiversion@=0.7.2, num@=0.4.1, num-bigint@=0.4.3, num-complex@=0.4.3, num-integer@=0.1.45, num-iter@=0.1.43, num-rational@=0.4.1, num-traits@=0.2.15, num-derive@=0.4.0, ndarray@=0.15.6, nalgebra@=0.32.3, alga@=0.9.3, libm@=0.2.7, rand@=0.8.5, getrandom@=0.2.10, rand_chacha@=0.3.1, rand_core@=0.6.4, rand_hc@=0.3.2, rand_pcg@=0.3.1, rand_distr@=0.4.3, petgraph@=0.6.3, indexmap@=2.0.0, regex@=1.9.1, lazy_static@=1.4.0, ordered-float@=3.7.0, ascii@=1.1.0, permutohedron@=0.2.4, superslice@=1.0.0, itertools@=0.11.0, itertools-num@=0.1.3, maplit@=1.0.2, either@=1.8.1, im-rc@=15.1.0, fixedbitset@=0.4.2, bitset-fixed@=0.1.0, proconio@=0.4.5, text_io@=0.1.12, rustc-hash@=1.1.0, smallvec@=1.11.0"
+
+docker:
+    image: "ale-bench-lite-worker:latest"
+
+bab:
+    max_rounds: 10
+    max_workers: 5
+
+prompt_template: |
+    # Problem Description
+    <problem_description>
+    {{ problem_description }}
+    </problem_description>
+
+    # Allowed Languages & Libraries
+    - Languages: {{ allowed_languages }}
+    - C++: {{ allowed_cpp_libraries }}
+    - Python: {{ allowed_python_libraries }}
+    - Rust: {{ allowed_rust_libraries }}
+    - Do NOT install packages at runtime. No internet access in the container.
+
+    # Evaluation
+    Run the evaluator via this command:
+    ```
+    ale-bench-eval --problem-id {{ problem_id }} --code-path path/to/solution.cpp
+    ```
+    The evaluator talks to the ALE-Bench server. The test contents and evaluation framework are unavailable to you.
+
+baseline_context_template: |
+    # Baseline Solution
+    The best baseline solution is available at `baseline.cpp` in the workspace.
+    Its public score is {{ initial_score }} (on 100 provisional test cases).
+    Analyze `baseline.cpp` before planning your first set of tasks. Add description and analysis of the baseline as markdown files in the wiki at /wiki.
