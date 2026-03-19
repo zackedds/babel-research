@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -105,6 +106,9 @@ def start_container(
     cmd = [
         "docker", "run", "-d",
         "--name", container_name,
+        "--user", f"{os.getuid()}:{os.getgid()}",
+        "-e", "HOME=/testbed/workspace",
+        "-e", "PATH=/testbed/workspace/.local/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         "-v", f"{run_dir}:/testbed/workspace",
         "-v", f"{run_dir / '.codex'}:/root/.codex",
         "-v", f"{REPO_ROOT}:/opt/babel-research",
@@ -115,7 +119,7 @@ def start_container(
     print(f"[run] Starting container: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
     subprocess.run(
-        ["docker", "exec", container_name, "pip", "install", "-q", "-e", "/opt/babel-research"],
+        ["docker", "exec", container_name, "pip", "install", "-q", "--user", "-e", "/opt/babel-research"],
         check=True,
     )
     subprocess.run(
@@ -261,13 +265,6 @@ def main() -> None:
     prompt_file = run_dir / "prompt.md"
     prompt_file.write_text(prompt_text, encoding="utf-8")
     print(f"[run] Wrote prompt: {prompt_file}")
-
-    # Write baseline context (shown to planner only on round 1)
-    if "baseline_context_template" in config:
-        baseline_context = Template(config["baseline_context_template"]).render(
-            initial_score=initial_score,
-        )
-        (run_dir / "baseline_context.md").write_text(baseline_context, encoding="utf-8")
 
     # Ensure host eval server is running
     ensure_server_running()

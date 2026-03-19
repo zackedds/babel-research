@@ -150,7 +150,15 @@ class TmuxClient:
         buffer_name = f"orchestrator-{uuid.uuid4().hex}"
         lock = self._send_locks[session_name]
         with lock:
-            self._run(["set-buffer", "-b", buffer_name, "--", text])
+            result = subprocess.run(
+                ["tmux", "load-buffer", "-b", buffer_name, "-"],
+                input=text,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip() or result.stdout.strip()
+                raise TmuxError(f"tmux load-buffer failed: {stderr}")
             try:
                 self._run(["paste-buffer", "-p", "-t", session_name, "-b", buffer_name])
                 time.sleep(0.2)

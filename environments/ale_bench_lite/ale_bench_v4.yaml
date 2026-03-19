@@ -1,0 +1,911 @@
+# ALE-bench settings
+target_score: 0.0
+command_timeout: 300
+problem_limits_by_problem:
+  ahc008:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc011:
+    time_limit: "3 sec"
+    memory_limit: "1024 MiB"
+  ahc015:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc016:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc024:
+    time_limit: "5 sec"
+    memory_limit: "1024 MiB"
+  ahc025:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc026:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc027:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc039:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+  ahc046:
+    time_limit: "2 sec"
+    memory_limit: "1024 MiB"
+# ALE session wall-clock duration (seconds). Used when starting ale_bench.start(...).
+session_duration_seconds_by_problem:
+  ahc008: 14400
+  ahc011: 14400
+  ahc015: 14400
+  ahc016: 14400
+  ahc024: 14400
+  ahc025: 14400
+  ahc026: 14400
+  ahc027: 14400
+  ahc039: 14400
+  ahc046: 14400
+template_vars:
+  problem_id: "ahc039"
+  problem_description: "Populate this field at run time with the selected AHC statement."
+  initial_solution_public_scores:
+    ahc008: 183454030
+    ahc011: 21465951
+    ahc015: 34954179
+    ahc016: 690445496
+    ahc024: 95782
+    ahc025: 190687459
+    ahc026: 462845
+    ahc027: 450292454
+    ahc039: 186256
+    ahc046: 72434
+  eval_script_command: "python3 /testbed/repo/public_eval_runner.py --problem-id {{problem_id}} --code-path path"
+  final_submission_prefix: "/testbed/repo/final_submission"
+  inject_modal_budget_metadata_to_all_tool_calls: false
+  evaluate_timeout_seconds: 600
+  post_success_evaluations_limit: 2
+  planner_model_budget_usd: 0
+  planner_gpu_minutes_budget: 0
+  evaluation_success_trigger: '"overall_judge_result": "JudgeResult.ACCEPTED"'
+  evaluate_command_template: |
+    timeout {{evaluate_timeout_seconds}} {{host_python_executable}} - <<'PY'
+    import json
+    from pathlib import Path
+
+    PROBLEM_ID = "{{problem_id}}"
+    PREFIX = "{{final_submission_prefix_host}}"
+
+    def infer_language(path: Path) -> str:
+        ext = path.suffix.lower()
+        if ext == ".py":
+            return "python"
+        if ext in {".cpp", ".cc", ".cxx"}:
+            return "cpp23"
+        if ext == ".rs":
+            return "rust"
+        raise ValueError(f"unsupported submission extension: {ext}")
+
+    def resolve_submission(prefix: str) -> Path | None:
+        prefix_path = Path(prefix)
+        candidates = []
+        if prefix_path.suffix.lower() in {".py", ".cpp", ".cc", ".cxx", ".rs"}:
+            candidates.append(prefix_path)
+        else:
+            candidates.extend(
+                [
+                    Path(prefix + ".py"),
+                    Path(prefix + ".cpp"),
+                    Path(prefix + ".cc"),
+                    Path(prefix + ".cxx"),
+                    Path(prefix + ".rs"),
+                ]
+            )
+            parent = prefix_path.parent
+            if parent.exists():
+                candidates.extend(sorted(parent.glob(prefix_path.name + ".*")))
+        seen = set()
+        for candidate in candidates:
+            text = str(candidate)
+            if text in seen:
+                continue
+            seen.add(text)
+            if candidate.exists() and candidate.is_file():
+                return candidate
+        return None
+
+    target = resolve_submission(PREFIX)
+    if target is None:
+        print(
+            json.dumps(
+                {
+                    "error": "submission_not_found",
+                    "problem_id": PROBLEM_ID,
+                    "code_path_prefix": PREFIX,
+                },
+                sort_keys=True,
+            )
+        )
+        raise SystemExit(1)
+
+    language = infer_language(target)
+    code = target.read_text()
+
+    try:
+        import ale_bench
+
+        session = ale_bench.start(
+            problem_id=PROBLEM_ID,
+            lite_version=False,
+            num_workers=1,
+            run_visualization_server=False,
+        )
+        try:
+            public_result = session.public_eval(code, code_language=language)
+            payload = {
+                "problem_id": PROBLEM_ID,
+                "code_path": str(target),
+                "language": language,
+                "overall_judge_result": str(public_result.overall_judge_result),
+                "overall_absolute_score": int(public_result.overall_absolute_score),
+                "overall_relative_score": (
+                    int(public_result.overall_relative_score)
+                    if public_result.overall_relative_score is not None
+                    else None
+                ),
+            }
+        finally:
+            session.close()
+        print(json.dumps(payload, sort_keys=True))
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "error": "public_eval_failed",
+                    "problem_id": PROBLEM_ID,
+                    "code_path": str(target),
+                    "language": language,
+                    "exception_type": type(exc).__name__,
+                    "exception_message": str(exc),
+                },
+                sort_keys=True,
+            )
+        )
+        raise SystemExit(1)
+    PY
+  allowed_languages: "C++20 (gcc 12.2.0), Python3 (CPython 3.11.4), Rust (rustc 1.70.0)"
+  allowed_cpp_libraries: "AC Library@1.5.1, Boost@1.82.0, GMP@6.2.1, Eigen@3.4.0-2ubuntu2"
+  allowed_python_libraries: "numpy==1.24.1, scipy==1.10.1, networkx==3.0, sympy==1.11.1, sortedcontainers==2.4.0, more-itertools==9.0.0, shapely==2.0.0, bitarray==2.6.2, PuLP==2.7.0, mpmath==1.2.1, pandas==1.5.2, z3-solver==4.12.1.0, scikit-learn==1.2.0, ortools==9.5.2237, ac-library-python, setuptools==66.0.0, cppyy==2.4.1, torch==1.13.1+cpu, polars==0.15.15, lightgbm==3.3.1, gmpy2==2.1.5, numba==0.57.0"
+  allowed_rust_libraries: "ac-library-rs@=0.1.1, once_cell@=1.18.0, static_assertions@=1.1.0, varisat@=0.2.2, memoise@=0.3.2, argio@=0.2.0, bitvec@=1.0.1, counter@=0.5.7, hashbag@=0.1.11, pathfinding@=4.3.0, recur-fn@=2.2.0, indexing@=0.4.1, amplify@=3.14.2, amplify_derive@=2.11.3, amplify_num@=0.4.1, easy-ext@=1.0.1, multimap@=0.9.0, btreemultimap@=0.1.1, bstr@=1.6.0, az@=1.2.1, glidesort@=0.1.2, tap@=1.0.1, omniswap@=0.1.0, multiversion@=0.7.2, num@=0.4.1, num-bigint@=0.4.3, num-complex@=0.4.3, num-integer@=0.1.45, num-iter@=0.1.43, num-rational@=0.4.1, num-traits@=0.2.15, num-derive@=0.4.0, ndarray@=0.15.6, nalgebra@=0.32.3, alga@=0.9.3, libm@=0.2.7, rand@=0.8.5, getrandom@=0.2.10, rand_chacha@=0.3.1, rand_core@=0.6.4, rand_hc@=0.3.2, rand_pcg@=0.3.1, rand_distr@=0.4.3, petgraph@=0.6.3, indexmap@=2.0.0, regex@=1.9.1, lazy_static@=1.4.0, ordered-float@=3.7.0, ascii@=1.1.0, permutohedron@=0.2.4, superslice@=1.0.0, itertools@=0.11.0, itertools-num@=0.1.3, maplit@=1.0.2, either@=1.8.1, im-rc@=15.1.0, fixedbitset@=0.4.2, bitset-fixed@=0.1.0, proconio@=0.4.5, text_io@=0.1.12, rustc-hash@=1.1.0, smallvec@=1.11.0"
+
+disable_default_eval_assets: true
+
+evaluate_tool:
+  enabled: true
+
+execution:
+  workers_n: null
+  max_rounds: 8
+
+planner_model:
+  # model_name: "bedrock/converse/moonshotai.kimi-k2.5"
+  # model_name: "gemini/gemini-3-pro-preview"
+  # model_name: "gemini/gemini-3-flash-preview"
+  # model_name: "openai/gpt-5.2"
+  # model_name: "bedrock/global.anthropic.claude-opus-4-6-v1"
+  model_name: "bedrock/global.anthropic.claude-sonnet-4-6"
+  # model_name: "bedrock/global.anthropic.claude-opus-4-5-20251101-v1:0"
+  # model_name: "bedrock/global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  observation_template: |
+    {% set turns_remaining = step_limit - n_model_calls %}
+    {% if step_limit %}
+      {% if turns_remaining < 0 %}
+      {% set turns_remaining = 0 %}
+      {% endif %}
+    {% else %}
+      {% set turns_remaining = -1 %}
+    {% endif %}
+    {%- if output.output | length < 10000 -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output": {{ output.output | tojson }}
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+      {%- if step_limit and turns_remaining <= 20 %}, "finalization_warning": {{ ("You have " ~ turns_remaining ~ " turns remaining. Finalize soon; findings generated from this point may not be shared.") | tojson }}{% endif %}
+    }
+    {%- else -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output_head": {{ output.output[:5000] | tojson }},
+      "output_tail": {{ output.output[-5000:] | tojson }},
+      "elided_chars": {{ output.output | length - 10000 }},
+      "warning": "Output too long."
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+      {%- if step_limit and turns_remaining <= 20 %}, "finalization_warning": {{ ("You have " ~ turns_remaining ~ " turns remaining. Finalize soon; work after the turn limit will be lost.") | tojson }}{% endif %}
+    }
+    {%- endif -%}
+  model_kwargs:
+    thinking:
+      type: adaptive
+    output_config:
+      effort: high
+
+worker_model:
+  # model_name: "gemini/gemini-3-pro-preview"
+  # model_name: "bedrock/converse/moonshotai.kimi-k2.5"
+  # model_name: "openai/gpt-5.2"
+  # model_name: "bedrock/global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  # model_name: "bedrock/global.anthropic.claude-opus-4-5-20251101-v1:0"
+  # model_name: "gemini/gemini-3-flash-preview"
+  model_name: "bedrock/global.anthropic.claude-sonnet-4-6"
+  observation_template: |
+    {% set turns_remaining = step_limit - n_model_calls %}
+    {% if step_limit %}
+      {% if turns_remaining < 0 %}
+    {% set turns_remaining = 0 %}
+    {% endif %}
+    {% else %}
+      {% set turns_remaining = -1 %}
+    {% endif %}
+    {%- if output.output | length < 10000 -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output": {{ output.output | tojson }}
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+      {%- if output.extra is defined and output.extra.get("is_evaluation_observation") %}, "evaluation_budget_message": {{ output.extra.get("evaluation_budget_message", "") | tojson }}{% endif %}
+      {%- if step_limit and turns_remaining <= 20 %}, "finalization_warning": {{ ("You have " ~ turns_remaining ~ " turns remaining. Finalize soon; findings generated from this point may not be shared.") | tojson }}{% endif %}
+    }
+    {%- else -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output_head": {{ output.output[:5000] | tojson }},
+      "output_tail": {{ output.output[-5000:] | tojson }},
+      "elided_chars": {{ output.output | length - 10000 }},
+      "warning": "Output too long."
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+      {%- if output.extra is defined and output.extra.get("is_evaluation_observation") %}, "evaluation_budget_message": {{ output.extra.get("evaluation_budget_message", "") | tojson }}{% endif %}
+      {%- if step_limit and turns_remaining <= 20 %}, "finalization_warning": {{ ("You have " ~ turns_remaining ~ " turns remaining. Finalize soon; findings generated from this point may not be shared.") | tojson }}{% endif %}
+    }
+    {%- endif -%}
+  model_kwargs:
+    # temperature: 1.0
+    # reasoning_effort: medium
+    thinking:
+      type: adaptive
+    output_config:
+      effort: medium
+
+librarian_model:
+  # Inherits worker_model by default; set overrides here for a separate librarian model.
+  # model_name: "gemini/gemini-3-pro-preview"
+  # model_name: "gemini/gemini-3-flash-preview"
+  model_name: "bedrock/global.anthropic.claude-sonnet-4-6"
+  # model_name: "bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0"
+  # model_name: "bedrock/global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  observation_template: |
+    {% set turns_remaining = step_limit - n_model_calls %}
+    {% if step_limit %}
+      {% if turns_remaining < 0 %}
+      {% set turns_remaining = 0 %}
+      {% endif %}
+    {% else %}
+      {% set turns_remaining = -1 %}
+    {% endif %}
+    {%- if output.output | length < 10000 -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output": {{ output.output | tojson }}
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+      {%- if output.extra is defined and output.extra.get("is_evaluation_observation") %}, "evaluation_budget_message": {{ output.extra.get("evaluation_budget_message", "") | tojson }}{% endif %}
+      {%- if step_limit and turns_remaining <= 20 %}, "finalization_warning": {{ ("You have " ~ turns_remaining ~ " turns remaining. Finalize soon; findings afterwards will not be shared. Prioritize evaluation and writing your results to the wiki.") | tojson }}{% endif %}
+    }
+    {%- else -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output_head": {{ output.output[:5000] | tojson }},
+      "output_tail": {{ output.output[-5000:] | tojson }},
+      "elided_chars": {{ output.output | length - 10000 }},
+      "warning": "Output too long."
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+      {%- if output.extra is defined and output.extra.get("is_evaluation_observation") %}, "evaluation_budget_message": {{ output.extra.get("evaluation_budget_message", "") | tojson }}{% endif %}
+      {%- if step_limit and turns_remaining <= 20 %}, "finalization_warning": {{ ("You have " ~ turns_remaining ~ " turns remaining. Finalize soon; findings afterwards will not be shared. Prioritize evaluation and writing your results to the wiki.") | tojson }}{% endif %}
+    }
+    {%- endif -%}
+  model_kwargs:
+    temperature: 1.0
+    thinking:
+      type: adaptive
+    output_config:
+      effort: medium
+
+planner_agent:
+  prompt:
+    system_template: |
+      You are a researcher working on an open research problem. You have access to a technical research wiki dedicated to advancing knowledge on the problem. 
+      Your goal is to carefully study and understand the technical wiki, and eventually identify a set of strategic questions that advance the state of the wiki's knowledge. Multiple researchers will work on these questions in parallel.
+
+      Wiki Map:
+      {% if library_toc_sections -%}
+      {%- for section in library_toc_sections %}
+      - {{ section.title }}: {{ section.description }}
+      {%- if section.entries %}
+      {%- for entry in section.entries %}
+        - {{ entry.path }} | {{ entry.name }}{% if entry.description %} | {{ entry.description }}{% endif %}
+      {%- endfor %}
+      {%- else %}
+        - (no entries yet)
+      {%- endif %}
+      {%- endfor %}
+      {%- else %}
+      - (empty)
+      {%- endif %}
+    instance_template: |
+      {{problem_description}}
+      - Allowed languages: {{allowed_languages}}.
+      - Allowed libraries: C++: {{allowed_cpp_libraries}}. Python: {{allowed_python_libraries}}. Rust: {{allowed_rust_libraries}}.
+      - Do not install packages at runtime (pip/cargo). Use the preinstalled libraries above.
+
+      # Questions you have pursued so far
+      {% if questions %}
+      {% for q in questions[-5:] %}
+      - Question: {{ q.description }}
+        Motivation: {{ q.reasoning }}
+        Findings: {% if q.library_paths %}{{ q.library_paths | join(", ") }}{% else %}(none){% endif %}
+      {% endfor %}
+      {% else %}
+      No studied questions yet. This is a fresh start.
+      {% endif %}
+
+      # Your Role
+      {% if questions %}
+      You are continuing your investigation of the given problem. You previously studied the given questions and researchers' findings are located in the wiki. Actively reflect on these findings and other relevant wiki content. For every finding, ask yourself questions about them and exercise your curiosity. Explicitly ask yourself: 
+      - What directions to improve the solution do these findings imply? 
+      - How do they change your conceptual of the problems?
+      - How is this finding related to other findings?
+      - What are its strengths and weaknesses?
+
+      Based off of your thorough reading and reflection, propose a set of strategic questions to advance the state of the wiki's knowledge. Each question will be studied by a researcher in parallel so questions shouldn't depend on each other and not overlap much. You are allowed to ask a maximum of 5 questions.
+      {% else %}
+      Propose a set of diverse and strategic questions to advance the state of knowledge on the problem. Each question will be studied by a researcher in parallel so questions shouldn't depend on each other and not overlap much. You are allowed to ask a maximum of 5 questions.
+
+      The best baseline solution is available in the testbed as `initial_solution`. Its public score is {{ initial_solution_public_scores.get(problem_id, "unknown") }}. Plan to improve on that baseline. Carefully analyze `initial_solution` before planning your first set of questions. Add description and analysis of the baseline as markdown files in the wiki at `{{run_cwd}}/library`.
+      {% endif %}
+
+      Across your set of questions, you should incorporate the following types of questions:
+      - Ask questions that analyze existing approaches to understand WHY they are successful, work poorly, or to probe potential opportunities. The deliverables of these questions are analysis or theories, not solutions.
+      - Pursue multiple directions in parallel. If certain existing approaches are promising, ask focused questions to advance them. At the same time, ask questions that pursue novel, unexplored directions.
+      - Although it's okay to ask researchers to evaluate on custom tests and metrics, you MUST also tell them to evaluate use the `evaluate` tool. `evaluate` tool is the standard evaluation method. If a question asks a researcher to write a new solution, then make evaluation expectations explicit. 
+      - Explicitly assess whether progress is becoming stale; if it is becoming stale (and at least ~20 questions have been completed), call `brainstorming(...)` to explore new directions. Craft the prompt carefully so brainstorming is done in a strategic directions. Brainstormers do not share your context. They may produce low-quality ideas that should be critically evaluated.
+
+      Requirements:
+      - Use `research(reasoning=..., description=..., details=...)` to create questions.
+      - Keep each question self-contained so another researcher can study the question without extra context
+      - Use `reasoning` to explain how the question is situated within the library and why this question matters for advancing the library. Be concise here.
+      - Use `description` as a short, concise high-level question description.
+      - Use `details` for the main body, including the question's scope and details on the problem. Researchers who answer this question are not given the problem description you have or any other context, it must be self-contained.
+      - If you need to evaluate solutions while planning, use the `evaluate` tool. `evaluate` tool is the standard way evaluations are done.
+      - If you produce a significant new analysis, edit an appropriate wiki section to incorporate your analysis. 
+      - Use `brainstorming(...)` only when progress is stale and you need new strategic directions.
+      - No internet access.
+      
+      ## Submission
+      You MUST create questions using the `research` tool before submitting. Once you submit, you will NOT be able to return and edit the plan.  
+      After you have written your questions using the `research` tool, submit exactly with:
+      ```bash
+      echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+      ```
+    action_observation_template: |
+      <returncode>{{output.returncode}}</returncode>
+      {% if output.output | length < 10000 -%}
+      <output>
+      {{ output.output -}}
+      </output>
+      {%- else -%}
+      <warning>
+      The output of your last command was too long.
+      Please try a different command that produces less output.
+      If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+      If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+      If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+      </warning>
+      {%- set elided_chars = output.output | length - 10000 -%}
+      <output_head>
+      {{ output.output[:5000] }}
+      </output_head>
+      <elided_chars>
+      {{ elided_chars }} characters elided
+      </elided_chars>
+      <output_tail>
+      {{ output.output[-5000:] }}
+      </output_tail>
+      {%- endif -%}
+    format_error_template: |
+      Please always provide EXACTLY ONE action in triple backticks, found {{actions|length}} actions.
+
+      Please format your action in triple backticks as shown in <response_example>.
+
+      <response_example>
+      Here are some thoughts about why you want to perform the action.
+
+      ```bash
+      <action>
+      ```
+      </response_example>
+
+      If you have completed your assignment, please consult the first message about how to
+      submit your solution (you will not be able to continue working on this task after that). **AVOID including code blocks with backticks (```) in your summary** - backticks cause bash syntax errors. Submit exactly this to end:
+      ```bash
+      echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+      ```
+  step_limit: 200
+  cost_limit: 10.0
+  mode: yolo
+  confirm_exit: false
+  context_compression_interval: 0
+  context_compression_prompt_token_threshold: 180000
+  context_compression_max_chars: 10000
+  context_compression_system_template: |
+    You are a helpful AI assistant tasked with summarizing conversations.
+
+    When asked to summarize, provide a detailed but concise summary of the conversation. 
+    Focus on information that would be helpful for continuing the conversation, including:
+    - What was done
+    - What is currently being worked on
+    - Which files are being modified
+    - What needs to be done next
+    - Key user requests, constraints, or preferences that should persist
+    - Important technical decisions and why they were made
+
+    Your summary should be comprehensive enough to provide context but concise enough to be quickly understood.
+  context_compression_user_template: |
+    <transcript>
+    {{context_compression_transcript}}
+    </transcript>
+
+    Summarize our conversation above. This summary will be the only context available when the conversation continues, so preserve critical information including: what was accomplished, current work in progress, files involved, next steps, and any key user requests or constraints. Be concise but detailed enough that work can continue seamlessly.
+  
+worker_agent:
+  system_template: |
+    You are a researcher that can interact with a computer using a bash tool. 
+    Keep your additions to the codebase organized and minimal. Add to existing/create new strategy family directories or subdirectories where appropriate. Do not create many different versions of the same file; instead iterate on the same one.
+    You also have access to a technical research wiki advancing an open research problem.
+    The wiki is organized as an explicit information architecture with section-level entry pages and supporting detail pages. Add your findings to the wiki when finished.
+    Wiki Map:
+    Use this map to decide where new findings belong and which overview or detail pages to cite or extend.
+    {% if library_toc_sections -%}
+    {%- for section in library_toc_sections %}
+    - {{ section.title }}: {{ section.description }}
+    {%- if section.entries %}
+    {%- for entry in section.entries %}
+      - {{ entry.path }} | {{ entry.name }}{% if entry.description %} | {{ entry.description }}{% endif %}
+    {%- endfor %}
+    {%- else %}
+      - (no entries yet)
+    {%- endif %}
+    {%- endfor %}
+    {%- else %}
+    - (empty)
+    {%- endif %}
+  instance_template: |
+    Worktree isolation: your working directory is `{{run_cwd}}`. Do not read or write outside of `{{run_cwd}}`.
+
+    Question: {{question_payload.description}}
+    Motivation: {{question_payload.reasoning}}
+    Details: {{question_payload.details}}
+
+    You are working as part of a research team. Focus on your assigned question; do not go outside its scope.
+
+    General rules: 
+    - Allowed languages: {{allowed_languages}}.
+    - Allowed libraries: C++: {{allowed_cpp_libraries}}. Python: {{allowed_python_libraries}}. Rust: {{allowed_rust_libraries}}.
+    - Do not install packages at runtime (pip/cargo). Use the preinstalled libraries above.
+    - Read only the minimum files needed to complete the assigned question. Keep command output short.
+
+    When you are done, add your findings directly to the research wiki located in `{{run_cwd}}/library`. Here are some guidelines to follow:
+    - Actively reflect on your findings. Ask yourself questions about them and exercise your curiosity. Explicitly ask yourself the following questions and include them in your wiki file output:
+      - If your wrote a new solution, what are its strengths and weaknesses?
+        - Does it solve any bottlenecks? 
+        - What are its failure modes?
+      - What are open questions?
+      - What directions to improve the solution do these findings imply? 
+      - Do these findings change your conceptual model of the problem?
+      - How is this finding related to other findings in the wiki? Situate your new findings within existing findings, explictly citing the file path
+    - Include the question you're answering and its motivation.
+    - When explaining your content, cite the names of code files you created when relevant.
+    - You may read existing wiki files, but do not edit, delete, or rename them.
+    - Write your findings into one or more new markdown files only.
+    - Every new wiki filename must be unique and must include both `{{question_payload.id}}` and `{{worker_id}}`. Example: `library/topic/my_note__{{question_payload.id}}__{{worker_id}}.md`.
+    - Keep your new files self-contained so they can be later reorganize or merge them without losing information.
+
+    IMPORTANT ADDITIONAL RULES IF YOUR ARE ASKED TO EVALUATE A COMPLETE SOLUTION:
+    - Read the minimal files necessary for your task
+    - If the task asks for an evaluated solution, write the candidate directly to `
+    {{final_submission_prefix}}.<ext>` (`.cpp`, `.rs`, `.py`). This output path is the standard naming convention. Do not invent a different final output path.
+    - Produce one complete candidate quickly. Do not branch into unrelated directions or broad exploratory investigations.
+    - Use unique filenames for your experiments only when the question explicitly requires experiments. Otherwise, avoid creating extra files.
+    - The only official way to evaluate a candidate is the `evaluate` tool. Minimizes time spent evaluating using other test cases and metrics. 
+    - Run the first evaluation as soon as the candidate is complete by calling `evaluate` tool with no arguments. All later evaluations must also use only `evaluate`.
+    - Once you have an ACCEPTED public evaluation, you must submit within a MAXIMUM of 2 more accepted public evaluations.
+    - If the task specifies a target, you are not required to meet it. You must stop iterating on a solution after the evaluation budget is exhausted, even if the target is not met.
+    - You MUST report your evaluation score from evaluate() and explicitly mark it as the official score in the wiki.
+
+    When done working, submit exactly with:
+    You MUST add your findings to the wiki before submitting. If you worked on a new solution, make sure to use the `evaluate` tool to receive an offical score and include it in the wiki. Once you submit, you will NOT be able to return.  
+    After you have added your findings to the wiki, submit exactly with:
+    ```bash
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+    ```
+  action_observation_template: |
+    {% set turns_remaining = step_limit - n_model_calls %}
+    {% if step_limit %}
+      {% if turns_remaining < 0 %}
+    {% set turns_remaining = 0 %}
+      {% endif %}
+    {% else %}
+      {% set turns_remaining = -1 %}
+    {% endif %}
+    <returncode>{{output.returncode}}</returncode>
+    {% if output.output | length < 10000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {% if step_limit and turns_remaining <= 20 %}
+    <finalization_warning>
+    You have {{ turns_remaining }} turns remaining. Finalize soon; findings afterwards will not be shared. Prioritize evaluation and writing your results to the wiki."
+    </finalization_warning>
+    {% endif %}
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    If you're looking at a file you can try use head, tail or sed to view a smaller number of lines selectively.
+    If you're using grep or find and it produced too much output, you can use a more selective search pattern.
+    If you really need to see something from the full command's output, you can redirect output to a file and then search in that file.
+    </warning>
+    {%- set elided_chars = output.output | length - 10000 -%}
+    <output_head>
+    {{ output.output[:5000] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-5000:] }}
+    </output_tail>
+    {% if step_limit and turns_remaining <= 20 %}
+    <finalization_warning>
+    You have {{ turns_remaining }} turns remaining. Finalize soon; findings afterwards will not be shared. Prioritize evaluation and writing your results to the wiki."
+    </finalization_warning>
+    {% endif %}
+    {%- endif -%}
+  format_error_template: |
+    Please always provide EXACTLY ONE action in triple backticks, found {{actions|length}} actions.
+
+    Please format your action in triple backticks as shown in <response_example>.
+
+    <response_example>
+    Here are some thoughts about why you want to perform the action.
+
+    ```bash
+    <action>
+    ```
+    </response_example>
+
+    If you have completed your assignment, please consult the first message about how to
+    submit your solution (you will not be able to continue working on this task after that). **AVOID including code blocks with backticks (```) in your summary** - backticks cause bash syntax errors. Submit exactly this to end:
+    ```bash
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+    ```
+  step_limit: 75
+  cost_limit: 10.0
+  mode: yolo
+  confirm_exit: false
+  context_compression_interval: 0
+  context_compression_prompt_token_threshold: 100000
+  context_compression_max_chars: 10000
+  context_compression_system_template: |
+    You are a helpful AI assistant tasked with summarizing conversations.
+
+    When asked to summarize, provide a detailed but concise summary of the conversation. 
+    Focus on information that would be helpful for continuing the conversation, including:
+    - What was done
+    - What is currently being worked on
+    - Which files are being modified
+    - What needs to be done next
+    - Key user requests, constraints, or preferences that should persist
+    - Important technical decisions and why they were made
+
+    Your summary should be comprehensive enough to provide context but concise enough to be quickly understood.
+  context_compression_user_template: |
+    <transcript>
+    {{context_compression_transcript}}
+    </transcript>
+
+    Summarize our conversation above. This summary will be the only context available when the conversation continues, so preserve critical information including: what was accomplished, current work in progress, files involved, next steps, and any key user requests or constraints. Be concise but detailed enough that work can continue seamlessly.
+
+librarian_agent:
+  system_template: |
+    ## Role
+    You are the lead editor of a technical research wiki advancing an open research problem. You can interact with a computer to explore and edit the wiki.
+
+    ## Required Wiki Architecture
+    The wiki must be organized around an explicit information architecture, not an ad hoc collection of experiment notes.
+    The required top-level sections are:
+    - problem_definition: The problem statement, constraints, scoring model, and evaluation assumptions.
+    - core_models: Reusable abstractions and conceptual models of the problem many approaches rely on, not for specific strategies, implementations, or results.
+    - strategy_families: Major approach families. Each family should have an overview page if there is enough content, plus supporting detailed pages.
+    - cross_cutting_analysis: Analysis that compares or explains multiple strategy families, such as diagnostics, bottlenecks, scaling behavior, hyperparameters, robustness, and failure modes.
+    - comparison: Cross-strategy comparisons, evaluation matrices, tradeoff tables, and direct "A vs B" synthesis.
+    - current_best: The current best-known approach, recommended reading path, current best implementation pointers, and the strongest evidence for why it is currently best.
+    - archive: Historical or superseded experiment notes that should remain discoverable but should not dominate the main reading path.
+
+    ## Example Structure
+    Example target directory structure for a different problem (warehouse robot routing):
+    ```text
+    library/
+      MAIN.md
+      problem_definition/
+        MAIN.md
+        task_spec.md
+        constraints.md
+        metrics.md
+      core_models/
+        MAIN.md
+        grid_model.md
+        congestion_model.md
+        conflict_model.md
+        timing_model.md
+      strategy_families/
+        MAIN.md
+        greedy_dispatch/
+          MAIN.md
+          nearest_task.md
+          congestion_aware_scoring.md
+        path_planning/
+          MAIN.md
+          reservation_table.md
+          windowed_search.md
+          repair_moves.md
+        task_assignment/
+          MAIN.md
+          bipartite_matching.md
+          rolling_reassignment.md
+        hybrid_policies/
+          MAIN.md
+          dispatch_plus_repair.md
+      cross_cutting_analysis/
+        MAIN.md
+        bottleneck_analysis.md
+        scaling_limits.md
+        robustness_analysis.md
+        hyperparameters.md
+        failure_modes.md
+      comparison/
+        MAIN.md
+        strategy_matrix.md
+        tradeoffs.md
+        assignment_vs_planning.md
+      current_best/
+        MAIN.md
+        recommended_path.md
+        best_implementation.md
+        evidence.md
+      archive/
+        MAIN.md
+        experiment_notes/
+        superseded_strategies/
+    ```
+    This tree is an example, not a rigid schema, but the wiki should clearly embody this structure and these roles.
+
+    ## Progressive Disclosure
+    The wiki should use progressive disclosure:
+    - Each major section has a high-level entry page.
+    - Strategy families with enough content should have an overview page first, with links to detailed pages.
+    - Overview pages should include:
+      - concise explanation of the approach or idea
+      - best-known results in the strategy family 
+      - key reflections and analysis including key strengths and weaknesses
+      - concise descriptions of key conclusions, recommendations, and open questions
+      - status: active, superseded (by what), abandoned
+      - links to deeper files
+    - Detailed pages should include: 
+      - implementation details of a specific approach
+      - results with supporting evidence
+      - detailed reflections and analysis including key strengths and weaknesses
+      - references to code files
+      - links to related files, including across sections
+    
+    ## File Organization Rules
+    File and content organization rules:
+    - Every directory intended for navigation should contain a `MAIN.md` entry page.
+    - Every `MAIN.md` must begin with frontmatter:
+      ---
+      name: document-label
+      description: A description of what this document is about and when to read it
+      ---
+      - The description should be short: not more than a sentence or two. It should clearly describe what it's about and when it should be read.
+
+    ## Integration Rules
+    You will be given wiki paths to new findings from researchers. Your job is to integrate these findings into the wiki so they are organized, discoverable, and placed in the right level of abstraction. Avoid flat top-level dumping of loosely related strategy pages. Group them under the correct strategy family or synthesis section. Your top priority is to not lose information and to not introduce inaccuracies.
+    If you create a new structure that supersedes the old one, delete the old structure rather than leaving duplicate parallel hierarchies behind. Keep the wiki tidy.
+    When integrating new content, prefer to:
+    - merge or synthesize into existing overview pages when the insight is durable and belongs in the canonical reading path
+    - add or update detailed pages when the content is technical support for an existing family or analysis area
+    - move overly specific notes out of high-level pages into detail pages or archive if that improves clarity
+    - create missing overview pages when a section has enough detailed content but lacks a high-level guide
+    - update comparison and current_best pages whenever new findings materially change the ranking, recommendation, or interpretation of strategies
+      - in comparison and current_best, use the OFFICIAL score marked by the worker. Also compare any other reported metrics, but proritize the official score and always use it to track the best strategy.
+
+    ## Attribution
+    You MUST keep the catalog up to date with the final canonical library paths after reorganization. Call `catalog(...)` with final question-to-library-file attribution using canonical `library/...` paths.
+  instance_template: |
+    ## Map of Current Wiki
+    {% if library_toc_sections -%}
+    {%- for section in library_toc_sections %}
+    - {{ section.title }}: {{ section.description }}
+    {%- if section.entries %}
+    {%- for entry in section.entries %}
+      - {{ entry.path }} | {{ entry.name }}{% if entry.description %} | {{ entry.description }}{% endif %}
+    {%- endfor %}
+    {%- else %}
+      - (no entries yet)
+    {%- endif %}
+    {%- endfor %}
+    {%- else %}
+    - (empty)
+    {%- endif %}
+
+    ## Open research problem targeted by wiki
+    {{problem_description}}
+
+    ## Newly added wiki files by researchers 
+    {% for item in librarian_payload.files %}
+    - Question {{item.question_id}} ({{item.worker_id}})
+      Description: {{item.description}}
+      Reasoning: {{item.reasoning}}
+      New library paths: {% if item.new_library_paths %}{{ item.new_library_paths | join(", ") }}{% else %}(none){% endif %}
+    {% endfor %}
+    {% if not questions %}
+    Also integrate the `initial_solution` baseline into the wiki and record its public score of {{ initial_solution_public_scores.get(problem_id, "unknown") }} where relevant.
+    {% endif %}
+
+    The wiki filesystem path for this run is {{run_cwd}}/library. Restructure and organize the technical wiki as needed.
+    
+    ## Submission
+    Before submitting, update `catalog(...)` with the final canonical `library/...` paths that reflect the question-to-library-file attribution in the reorganized wiki.
+    When done organizing the library, submit your changes. You will NOT be able to return and make new edits after you submit.
+    ```bash
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+    ```
+  action_observation_template: |
+    <returncode>{{output.returncode}}</returncode>
+    {% if step_limit is defined %}
+    {% set turns_remaining = step_limit - n_model_calls %}
+    {% if step_limit %}
+      {% if turns_remaining < 0 %}
+    {% set turns_remaining = 0 %}
+      {% endif %}
+    {% else %}
+      {% set turns_remaining = -1 %}
+    {% endif %}
+    {% endif %}
+    {% if output.output | length < 10000 -%}
+    <output>
+    {{ output.output -}}
+    </output>
+    {% if step_limit is defined and step_limit and turns_remaining <= 20 %}
+    <finalization_warning>
+    You have {{ turns_remaining }} turns remaining. Finalize soon; findings afterwards will not be shared. Prioritize evaluation and writing your results to the wiki."
+    </finalization_warning>
+    {% endif %}
+    {%- else -%}
+    <warning>
+    The output of your last command was too long.
+    Please try a different command that produces less output.
+    </warning>
+    {%- set elided_chars = output.output | length - 10000 -%}
+    <output_head>
+    {{ output.output[:5000] }}
+    </output_head>
+    <elided_chars>
+    {{ elided_chars }} characters elided
+    </elided_chars>
+    <output_tail>
+    {{ output.output[-5000:] }}
+    </output_tail>
+    {% if step_limit is defined and step_limit and turns_remaining <= 20 %}
+    <finalization_warning>
+    You have {{ turns_remaining }} turns remaining. Finalize soon; findings afterwards will not be shared. Prioritize evaluation and writing your results to the wiki."
+    </finalization_warning>
+    {% endif %}
+    {%- endif -%}
+  format_error_template: |
+    Please always provide EXACTLY ONE action in triple backticks, found {{actions|length}} actions.
+    Submit exactly this to end:
+    ```bash
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+    ```
+  step_limit: 200
+  cost_limit: 10.0
+  mode: yolo
+  confirm_exit: false
+  context_compression_interval: 0
+  context_compression_prompt_token_threshold: 180000
+  context_compression_max_chars: 10000
+  context_compression_system_template: |
+    You are a helpful AI assistant tasked with summarizing conversations.
+
+    When asked to summarize, provide a detailed but concise summary of the conversation. 
+    Focus on information that would be helpful for continuing the conversation, including:
+    - What was done
+    - What is currently being worked on
+    - Which files are being modified
+    - What needs to be done next
+    - Key user requests, constraints, or preferences that should persist
+    - Important technical decisions and why they were made
+
+    Your summary should be comprehensive enough to provide context but concise enough to be quickly understood.
+  context_compression_user_template: |
+    <transcript>
+    {{context_compression_transcript}}
+    </transcript>
+
+    Summarize our conversation above. This summary will be the only context available when the conversation continues, so preserve critical information including: what was accomplished, current work in progress, files involved, next steps, and any key user requests or constraints. Be concise but detailed enough that work can continue seamlessly.
+environment:
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: 'off'
+    TQDM_DISABLE: '1'
+model:
+  observation_template: |
+    {%- if output.output | length < 10000 -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output": {{ output.output | tojson }}
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+    }
+    {%- else -%}
+    {
+      "returncode": {{ output.returncode }},
+      "output_head": {{ output.output[:5000] | tojson }},
+      "output_tail": {{ output.output[-5000:] | tojson }},
+      "elided_chars": {{ output.output | length - 10000 }},
+      "warning": "Output too long."
+      {%- if output.exception_info %}, "exception_info": {{ output.exception_info | tojson }}{% endif %}
+    }
+    {%- endif -%}
+  format_error_template: |
+    Tool call error:
+
+    <error>
+    {{error}}
+    </error>
+
+    Here is general guidance on how to submit correct toolcalls:
+
+    Every response needs to use the 'bash' tool at least once to execute commands.
+
+    Call the bash tool with your command as the argument:
+    - Tool: bash
+    - Arguments: {"command": "your_command_here"}
+
+    If you want to end the task, please issue the following command: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
+    without any other command.
+  model_kwargs:
+    drop_params: true
+
+environment:
+  cwd: "/testbed/repo"
+  image: "my-ale-worker:dev"
+  interpreter: ["bash", "-c"]
+  # Lifetime of the background container process (`sleep ...`), not per-command timeout.
+  container_timeout: "1000h"
+  run_args:
+    - "--rm"
+  container_start_cmd: ["sleep", "1000h"]
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"
+  environment_class: docker

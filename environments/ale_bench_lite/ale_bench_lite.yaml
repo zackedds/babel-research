@@ -65,7 +65,15 @@ prompt_template: |
     - C++: {{ allowed_cpp_libraries }}
     - Python: {{ allowed_python_libraries }}
     - Rust: {{ allowed_rust_libraries }}
-    - Do NOT install packages at runtime. No internet access in the container.
+    - Do NOT install new packages
+    - No internet access
+
+    {% raw %}{% if not tasks %}{% endraw %}
+    # Baseline Solution
+    The best baseline solution is available at `baseline.cpp` in the workspace.
+    Its public score is {{ initial_score }} (on 100 provisional test cases).
+    Analyze `baseline.cpp` before planning your first set of tasks. Add description and analysis of the baseline as markdown files in the wiki at /wiki.
+    {% raw %}{% endif %}{% endraw %}
 
     # Evaluation
     Run the evaluator via this command:
@@ -74,8 +82,5 @@ prompt_template: |
     ```
     The evaluator talks to the ALE-Bench server. The test contents and evaluation framework are unavailable to you.
 
-baseline_context_template: |
-    # Baseline Solution
-    The best baseline solution is available at `baseline.cpp` in the workspace.
-    Its public score is {{ initial_score }} (on 100 provisional test cases).
-    Analyze `baseline.cpp` before planning your first set of tasks. Add description and analysis of the baseline as markdown files in the wiki at /wiki.
+    # Planner requirements
+    When writing tasks that require an evaluated solution, you MUST explicitly tell researchers to write their final solution to "submission_{unique_suffix}.<ext>". The "submission_" prefix is required, while the suffix is a unique and descriptive identifer the worker can decide. This output path is the standard naming convention. Do not invent a different final output path.

@@ -241,7 +241,10 @@ def run_orchestration_loop(
                 {
                     "description": t["description"],
                     "status": t["status"],
-                    "wiki_paths": list(getattr(all_sessions.get(t["id"]), "wiki_file_paths", None) or []),
+                    "wiki_paths": (
+                        list(t.get("wiki_file_paths") or [])
+                        or list(getattr(all_sessions.get(t["id"]), "wiki_file_paths", None) or [])
+                    ),
                 }
                 for t in closed_tasks
             ]
@@ -308,6 +311,8 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
         last = orchestrator.get_session(run.planner_session_ids[-1])
         if last is not None and last.status in {"running", "starting"}:
             return run
+    from jinja2 import Environment as _JinjaEnv
+
     run_tasks_path = tasks_file_path(orchestrator.root, run.id)
     tasks("prepare", path=run_tasks_path)
 
@@ -317,13 +322,20 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
         {
             "description": t["description"],
             "status": t["status"],
-            "wiki_paths": list(getattr(all_sessions.get(t["id"]), "wiki_file_paths", None) or []),
+            "wiki_paths": (
+                list(t.get("wiki_file_paths") or [])
+                or list(getattr(all_sessions.get(t["id"]), "wiki_file_paths", None) or [])
+            ),
         }
         for t in closed_tasks
     ]
 
-    baseline_context_path = Path(run.workdir) / "baseline_context.md"
-    baseline_context = baseline_context_path.read_text(encoding="utf-8") if (not template_tasks and baseline_context_path.exists()) else ""
+    _jinja = _JinjaEnv(keep_trailing_newline=True)
+    rendered_user_prompt = _jinja.from_string(run.initial_prompt).render(
+        tasks=template_tasks,
+        wiki_sections=build_wiki_toc(Path(run.workdir) / "wiki"),
+        max_workers=run.max_workers if run.max_workers is not None else "unlimited",
+    )
 
     planner = orchestrator.create_session(
         AgentSessionSpec(
@@ -334,9 +346,8 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
             template_vars={
                 "max_workers": run.max_workers if run.max_workers is not None else "unlimited",
                 "tasks": template_tasks,
-                "user_prompt": run.initial_prompt,
+                "user_prompt": rendered_user_prompt,
                 "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
-                "baseline_context": baseline_context,
             },
             round_index=run.rounds_completed + 1,
         )
@@ -358,8 +369,6 @@ def build_planner_prompt(initial_prompt: str, run_id: str) -> str:
     return "\n".join(
         [
             f"Run ID: {run_id}",
-            "",
-            initial_prompt.strip(),
             "",
             "Planner completion checklist:",
             "1. Create all requested tasks and notes in this run.",
@@ -541,7 +550,7 @@ def build_librarian_prompt(run_id: str) -> str:
             "Librarian completion checklist:",
             "1. Review all files in wiki/",
             "2. Organize and improve wiki content",
-            f"3. For each task, call: tasks --run-id {run_id} catalog --id <task-id> --paths <canonical library/... paths>",
+            f"3. For each task in the context whose wiki content is known, call: tasks --run-id {run_id} catalog --id <task-id> --paths <wiki/... paths after reorganisation>. Only use task IDs that appear in the tasks context you received (these are closed tasks); do not invent or use other task IDs.",
             f"4. Final required command for success: tasks --run-id {run_id} wiki-ready",
             "5. Do not stop before step 4 has succeeded.",
             "",

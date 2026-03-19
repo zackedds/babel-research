@@ -29,11 +29,6 @@ prompt: |
     No tasks completed yet. This is a fresh start.
     {% endif %}
 
-    {% if baseline_context %}
-    # Baseline
-    {{ baseline_context }}
-    {% endif %}
-
     # Research problem
     <problem_definition>
     {{user_prompt}}
@@ -68,14 +63,14 @@ prompt: |
     Although it's okay to ask researchers to evaluate on custom tests and metrics, you MUST also tell them to evaluate using the primary/standard metric if given one. If a question asks a researcher to write a new solution, then make this evaluation expectation explicit.
 
     # Creating new branches
-    For every task, you must create and specify a new branch for the researcher to use. New branches shold branch off of an existing branch or sub-branch based on what the starting point for the task’s implementation should be. For example, if new tasks refine an existing implementation from the same strategy family, then the new branch should branch off the existing implementation's branch. It's your job to setup the new branch used by workers.
+    For every task, you must create and specify a new branch for the researcher to use. New branches should branch off of an existing branch or sub-branch based on what the starting point for the task’s implementation should be. For example, if new tasks refine an existing implementation from the same strategy family, then the new branch should branch off the existing implementation's branch. There should not just be tons of branches off of main, create sub-branches, sub-sub-branches, and so on. It's your job to setup the new branch used by workers.
 
     # Rules for defining tasks
     Use the `tasks` CLI to write new tasks
     - Tasks should start with a research question
     - Keep each task self-contained so another researcher can study the question without extra context
     - Use `description` field as a short, concise high-level question description and its reasoning. Your reasoning should explain how the task's question is situated within the wiki and why it matters for advancing the wiki.
-    - Use `notes` field for all the details, including the question's scope and details on the problem. Researchers who answer this question are not given the problem description you have or any other context, it must be self-contained.
+    - Use `notes` field for all the details, including the question's scope and details on the problem. Researchers who answer this question are not given the problem description you have or any other context, it must be self-contained. So thoroughly describe the problem, context, deliverables. Don't be lazy.
     - Use `branch` field to specify the name of the branch the worker should use for this task. Use distinct and descriptive branch names.
 
     # Submission

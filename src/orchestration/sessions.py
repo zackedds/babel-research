@@ -25,13 +25,6 @@ from .state_paths import LEGACY_SESSIONS_PATH, session_log_path, sessions_file_p
 
 STATE_POLL_INTERVAL_SECONDS = 0.2
 DEFAULT_SESSIONS_PATH = LEGACY_SESSIONS_PATH
-SESSION_MARKER_INSTRUCTIONS = (
-    "Session completion contract:\n"
-    "- Planner sessions complete only after they mark the run ready through the tasks CLI.\n"
-    "- Worker sessions complete only after they close their assigned task through the tasks CLI.\n"
-    "- Do not stop early; the watcher will evaluate completion from task state after output settles.\n"
-)
-
 
 def load_sessions(path: Path) -> dict[str, AgentSession]:
     raw = load_json(path, default_factory=lambda: {"sessions": []})
@@ -122,8 +115,7 @@ class Orchestrator:
 
         session_id = spec.session_id or self._new_session_id()
         tmux_session = spec.session_name or session_id
-        role_prompt = render_role_prompt(role.prompt, spec.template_vars or {})
-        full_prompt = build_full_prompt(role_prompt, spec.session_prompt)
+        full_prompt = render_role_prompt(role.prompt, spec.template_vars or {})
         started_at = datetime.now(UTC)
 
         record = AgentSession(
@@ -455,9 +447,6 @@ def _poll_for_agent_log_file(
         time.sleep(poll_interval_seconds)
     return None
 
-
-def build_full_prompt(role_prompt: str, session_prompt: str) -> str:
-    return f"{role_prompt.strip()}\n\n{SESSION_MARKER_INSTRUCTIONS}\n{session_prompt.strip()}"
 
 
 def render_role_prompt(role_prompt: str, template_vars: dict[str, object]) -> str:

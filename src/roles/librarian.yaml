@@ -97,7 +97,7 @@ prompt: |
 
     # Newly added wiki files by researchers
     {% for task in (tasks[-max_workers:] if max_workers != 'unlimited' else tasks) %}
-    - Question: {{ task.description }}
+    - Task {{ task.id }}: {{ task.description }}
       Wiki paths: {% if task.wiki_paths %}{{ task.wiki_paths | join(", ") }}{% else %}(none){% endif %}
     {% endfor %}
 

@@ -6,4 +6,6 @@ __pycache__/
 *.egg-info/
 .worktrees/
 tests/smoke_out/
-environments/ale_bench_lite/out_logs/
+environments/ale_bench_lite/runs/
+*.nohup.log
+nohup.out

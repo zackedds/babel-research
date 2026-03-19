@@ -20,17 +20,21 @@ prompt: |
     {%- endif %}
 
     # Your task
-    Task {{task.id}}: {{task.description}}
-    Motivation: {{task.reasoning}}
-    Details: {{task.notes}}
+    Task {{task.id}}: {{task.title}}
+    {{task.description}}
+
+    {% for note in task.notes %}
+    {{ note.text }}
+    {% endfor %}
 
     # Your role
     You are working as part of a research team. Focus on your assigned task; do not go outside its scope.
 
     # Committing and merging code
-    When you are done, commit your changes and decide whether to merge your sub-branch into your parent branch. Do NOT merge if your parent branch is main/master.
+    When you are done, commit your changes and decide whether to merge your sub-branch into your parent branch. To find your parent branch, use git. Do NOT merge if your parent branch is main/master.
     - Write descriptive commit messages. If you produce an evaluation metric, you MUST put it at the end of the commit message e.g. score=1.23.
     - Merge only if your solution is better than the parent branch's current solution or if your code is just for analysis. You can check the parent's score using its commit message.
+    - Prefer one big commit in this case
     - It's your job to safely resolve merge conflicts
 
     # Contributing to the wiki
