@@ -32,7 +32,9 @@ def builtin_runtimes() -> dict[str, RuntimeDefinition]:
                 banner_substring="Claude Code",
                 prompt_prefix="❯",
                 timeout_seconds=45.0,
-                auto_respond_patterns=(),
+                auto_respond_patterns=(
+                    ("Yes, I trust this folder", "1"),
+                ),
             ),
             agent_logs_dir=Path.home() / ".claude" / "projects",
             model_flag="--model",
