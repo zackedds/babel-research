@@ -192,6 +192,7 @@ def run_orchestration_loop(
                         session_id=session_id,
                         worktree_path=worktree_path,
                         template_vars={
+                            "run_id": run.id,
                             "task": assigned,
                             "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
                         },
@@ -256,6 +257,7 @@ def run_orchestration_loop(
                     workdir=run.workdir,
                     round_index=round_index,
                     template_vars={
+                        "run_id": run.id,
                         "max_workers": run.max_workers if run.max_workers is not None else "unlimited",
                         "tasks": template_tasks,
                         "user_prompt": run.initial_prompt,
@@ -344,6 +346,7 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
             session_prompt=build_planner_prompt(run.initial_prompt, run.id),
             workdir=run.workdir,
             template_vars={
+                "run_id": run.id,
                 "max_workers": run.max_workers if run.max_workers is not None else "unlimited",
                 "tasks": template_tasks,
                 "user_prompt": rendered_user_prompt,

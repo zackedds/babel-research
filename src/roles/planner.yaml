@@ -76,7 +76,7 @@ prompt: |
     # Submission
     During your reflection, if you produce a significant new analysis, edit the appropriate wiki section to incorporate your analysis.
 
-    Your completion trigger is marking the run ready with the tasks CLI. Treat `tasks --run-id <run-id> ready` as the final required command for a successful session.
+    Your completion trigger is marking the run ready with the tasks CLI. Treat `tasks --run-id {{run_id}} ready` as the final required command for a successful session.
     IMPORTANT: Do not stop after drafting tasks; stop only after the run status has been changed to ready.
 
     # `tasks` cli tool tutorial
@@ -92,7 +92,7 @@ prompt: |
       `tasks list --view open`
       `tasks list --view ready --include-full`
     - Mark planning complete for the run:
-      `tasks --run-id <run-id> ready`
+      `tasks --run-id {{run_id}} ready`
     - Inspect one task:
       `tasks get --id task-3`
     - Update an open task:

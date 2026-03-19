@@ -57,6 +57,6 @@ prompt: |
     You MUST add your findings to the wiki before submitting. Once you submit, you will NOT be able to return. Submit by closing completed work:
     `tasks close --id {{task.id}} --reason "Code merged and tests passed"`
     - Do not stop after coding if the task is still open or assigned.
-    - Treat `tasks --run-id <run-id> close --id <task-id> --reason "<result>"` as the final required command for a successful worker session.
+    - Treat `tasks --run-id {{run_id}} close --id {{task.id}} --reason "<result>"` as the final required command for a successful worker session.
     - These commands assume the package was installed with Python 3.11+.
       If `tasks` is not on `PATH`, use `python3.11 -m src.tasks.tasks_cli ...` instead.
