@@ -9,6 +9,7 @@ from pathlib import Path
 class RoleOverride:
     model: str | None = None
     thinking: str | None = None
+    pre_prompt_commands: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -24,9 +25,11 @@ class BabelConfig:
             data = tomllib.load(f)
         overrides: dict[str, RoleOverride] = {}
         for role_name, role_data in data.get("roles", {}).items():
+            pre_prompt = role_data.get("pre_prompt_commands") or []
             overrides[role_name] = RoleOverride(
                 model=role_data.get("model") or None,
                 thinking=role_data.get("thinking") or None,
+                pre_prompt_commands=tuple(pre_prompt),
             )
         agent_runtime = data.get("agent_runtime") or "codex"
         return cls(role_overrides=overrides, agent_runtime=agent_runtime)

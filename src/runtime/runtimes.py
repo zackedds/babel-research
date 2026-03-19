@@ -24,7 +24,19 @@ def builtin_runtimes() -> dict[str, RuntimeDefinition]:
                 ),
             ),
             agent_logs_dir=Path.home() / ".codex" / "sessions",
-        )
+        ),
+        "claude-code": RuntimeDefinition(
+            name="claude-code",
+            startup_command=["claude", "--dangerously-skip-permissions"],
+            ready_strategy=ReadyStrategy(
+                banner_substring="Claude Code",
+                prompt_prefix="❯",
+                timeout_seconds=45.0,
+                auto_respond_patterns=(),
+            ),
+            agent_logs_dir=Path.home() / ".claude" / "projects",
+            model_flag="--model",
+        ),
     }
 
 
