@@ -29,6 +29,8 @@ class RuntimeDefinition:
     startup_command: list[str]
     ready_strategy: ReadyStrategy
     agent_logs_dir: Path | None = None
+    model_flag: str = "-m"
+    pre_prompt_commands: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -109,7 +109,7 @@ class Orchestrator:
         effective_thinking = override.thinking or role.thinking
         effective_command = list(runtime.startup_command)
         if effective_model:
-            effective_command.extend(["-m", effective_model])
+            effective_command.extend([runtime.model_flag, effective_model])
         if effective_thinking:
             effective_command.extend(["--thinking", effective_thinking])
 
@@ -173,6 +173,11 @@ class Orchestrator:
                         self.session_log_path(record.id),
                         f"session not ready after attempt {attempt}/{_max_launch_attempts}; restarting",
                     )
+            effective_pre_cmds = override.pre_prompt_commands or runtime.pre_prompt_commands
+            for pre_cmd in effective_pre_cmds:
+                self.tmux.paste_and_submit(tmux_session, pre_cmd)
+                time.sleep(3)
+                self.tmux.wait_until_ready(tmux_session, runtime.ready_strategy)
             self.tmux.paste_and_submit(tmux_session, full_prompt)
             # agent_log_file will be back-filled by _start_log_file_scanner
         except Exception as exc:
