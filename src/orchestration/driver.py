@@ -219,15 +219,19 @@ def run_orchestration_loop(
         if run.current_phase == "worker":
             current_wave = run.worker_waves[-1] if run.worker_waves else []
             workers = [_wait_for_session(orchestrator, session_id, poll_interval_seconds) for session_id in current_wave]
-            if any(_session_failed(worker) for worker in workers):
-                failed_worker = next(worker for worker in workers if _session_failed(worker))
+            completed_workers = [w for w in workers if not _session_failed(w)]
+            failed_workers = [w for w in workers if _session_failed(w)]
+            for fw in failed_workers:
                 append_log_line(
                     log_path,
-                    f"worker session failed session_id={failed_worker.id} outcome={failed_worker.terminal_outcome} source={failed_worker.failure_source}",
+                    f"worker session failed session_id={fw.id} outcome={fw.terminal_outcome} source={fw.failure_source} (continuing with remaining workers)",
                 )
+            if not completed_workers:
+                append_log_line(log_path, "all workers in wave failed; marking run failed")
                 _update_run(run_store, replace(run, status="failed", current_phase="stopped"))
                 break
-            for worker in workers:
+            append_log_line(log_path, f"worker wave finished: {len(completed_workers)} completed, {len(failed_workers)} failed")
+            for worker in completed_workers:
                 if worker.task_id:
                     task_item = tasks("get", path=run_tasks_path, id=worker.task_id)["result"]
                     branch = str(task_item.get("branch", "")).strip()
@@ -359,13 +363,27 @@ def _ensure_planner_cycle(run: OrchestrationRun, orchestrator: Orchestrator, run
     return _update_run(run_store, replace(run, planner_session_ids=[*run.planner_session_ids, planner.id]))
 
 
-def _wait_for_session(orchestrator: Orchestrator, session_id: str, poll_interval_seconds: float) -> AgentSession:
+def _wait_for_session(
+    orchestrator: Orchestrator,
+    session_id: str,
+    poll_interval_seconds: float,
+    timeout_seconds: float = 7200.0,
+) -> AgentSession:
+    deadline = time.monotonic() + timeout_seconds
     while True:
         session = orchestrator.get_session(session_id)
         if session is None:
             raise ValueError(f"Unknown session id: {session_id}")
         if session.status not in {"starting", "running"}:
             return session
+        if time.monotonic() > deadline:
+            return replace(
+                session,
+                status="stopped",
+                terminal_outcome="failed",
+                failure_reason=f"session timed out after {timeout_seconds}s",
+                failure_source="driver_timeout",
+            )
         time.sleep(poll_interval_seconds)
 
 
