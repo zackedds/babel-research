@@ -33,7 +33,7 @@ def builtin_runtimes() -> dict[str, RuntimeDefinition]:
                 prompt_prefix="❯",
                 timeout_seconds=45.0,
                 auto_respond_patterns=(
-                    ("Yes, I trust this folder", "1"),
+                    ("Yes, I trust this folder", ""),
                 ),
             ),
             agent_logs_dir=Path.home() / ".claude" / "projects",
