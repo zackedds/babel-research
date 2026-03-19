@@ -9,7 +9,6 @@ RUNS_DIR = STATE_DIR / "runs"
 RUN_INDEX_PATH = STATE_DIR / "index.json"
 LEGACY_RUNS_PATH = STATE_DIR / "runs.json"
 LEGACY_SESSIONS_PATH = STATE_DIR / "sessions.json"
-LEGACY_TASKS_PATH = STATE_DIR / "tasks.json"
 RUN_FILENAME = "run.json"
 SESSIONS_FILENAME = "sessions.json"
 TASKS_FILENAME = "tasks.json"
@@ -57,9 +56,7 @@ def sessions_file_path(root: Path, run_id: str | None = None) -> Path:
     return run_dir(root, run_id) / SESSIONS_FILENAME
 
 
-def tasks_file_path(root: Path, run_id: str | None = None) -> Path:
-    if run_id is None:
-        return root.resolve() / LEGACY_TASKS_PATH
+def tasks_file_path(root: Path, run_id: str) -> Path:
     return run_dir(root, run_id) / TASKS_FILENAME
 
 
@@ -99,8 +96,23 @@ def resolve_default_run_id(root: Path) -> str | None:
     return None
 
 
+def find_workspace_root(start: Path) -> Path:
+    resolved = start.resolve()
+    if ".worktrees" not in resolved.parts:
+        return resolved
+    current = resolved
+    while True:
+        if (current / STATE_DIR).is_dir():
+            return current
+        parent = current.parent
+        if parent == current:
+            return resolved  # reached fs root, fall back
+        current = parent
+
+
 def resolve_default_tasks_path(root: Path) -> Path:
-    run_id = resolve_default_run_id(root)
-    if run_id is not None:
-        return tasks_file_path(root, run_id)
-    return root.resolve() / LEGACY_TASKS_PATH
+    effective_root = find_workspace_root(root)
+    run_id = resolve_default_run_id(effective_root)
+    if run_id is None:
+        raise RuntimeError(f"No active run found in {effective_root}")
+    return tasks_file_path(effective_root, run_id)

@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ..orchestration.state_paths import resolve_default_tasks_path, tasks_file_path
+from ..orchestration.state_paths import find_workspace_root, resolve_default_tasks_path, tasks_file_path
 from .store import tasks
 
 
-GLOBAL_OPTION_NAMES = {"--tasks-path", "--run-id"}
+GLOBAL_OPTION_NAMES = {"--run-id"}
 
 
 def _normalize_global_args(argv: list[str]) -> list[str]:
@@ -33,7 +33,6 @@ def _normalize_global_args(argv: list[str]) -> list[str]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tasks")
-    parser.add_argument("--tasks-path", type=Path, default=None, help="Override the task store path")
     parser.add_argument("--run-id", default=None, help="Resolve the per-run task store by run id")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -44,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--client-id")
     create.add_argument("--branch", default=None)
     create.add_argument("--notes", default=None)
+    create.add_argument("--notes-file", type=Path, default=None, help="Read notes from a file (avoids shell quoting issues)")
 
     get = subparsers.add_parser("get")
     get.add_argument("--id", required=True)
@@ -65,7 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     note_append = subparsers.add_parser("note-append")
     note_append.add_argument("--id", required=True)
-    note_append.add_argument("--note", required=True)
+    note_append.add_argument("--note", default=None)
+    note_append.add_argument("--note-file", type=Path, default=None, help="Read note from a file (avoids shell quoting issues)")
 
     assign = subparsers.add_parser("assign")
     assign.add_argument("--id", required=True)
@@ -89,10 +90,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_text(inline: str | None, file: Path | None) -> str | None:
+    if file is not None:
+        return file.read_text(encoding="utf-8")
+    return inline
+
+
 def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
     command = args.command
     if command == "create":
-        return command, {"title": args.title, "description": args.description, "client_id": args.client_id, "branch": args.branch, "notes": args.notes}
+        notes = _resolve_text(args.notes, args.notes_file)
+        return command, {"title": args.title, "description": args.description, "client_id": args.client_id, "branch": args.branch, "notes": notes}
     if command == "get":
         return command, {"id": args.id}
     if command == "update":
@@ -106,7 +114,10 @@ def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
     if command == "wiki-ready":
         return "wiki_ready", {}
     if command == "note-append":
-        return "note_append", {"id": args.id, "note": args.note}
+        note = _resolve_text(args.note, args.note_file)
+        if not note:
+            raise ValueError("note-append requires --note or --note-file")
+        return "note_append", {"id": args.id, "note": note}
     if command == "assign":
         return command, {"id": args.id}
     if command == "dep-add":
@@ -121,11 +132,10 @@ def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
 
 
 def _resolve_tasks_path(args: argparse.Namespace) -> Path:
-    if args.tasks_path is not None:
-        return args.tasks_path
+    root = find_workspace_root(Path.cwd())
     if args.run_id is not None:
-        return tasks_file_path(Path.cwd(), args.run_id)
-    return resolve_default_tasks_path(Path.cwd())
+        return tasks_file_path(root, args.run_id)
+    return resolve_default_tasks_path(root)
 
 
 def main(argv: list[str] | None = None) -> int:

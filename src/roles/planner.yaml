@@ -70,7 +70,7 @@ prompt: |
     - Tasks should start with a research question
     - Keep each task self-contained so another researcher can study the question without extra context
     - Use `description` field as a short, concise high-level question description and its reasoning. Your reasoning should explain how the task's question is situated within the wiki and why it matters for advancing the wiki.
-    - Use `notes` field for all the details, including the question's scope and details on the problem. Researchers who answer this question are not given the problem description you have or any other context, it must be self-contained. So thoroughly describe the problem, context, deliverables. Don't be lazy.
+    - Use `notes_file` field for all the details, including the question's scope and details on the problem. Researchers who answer this question are not given the problem description you have or any other context, it must be self-contained. So thoroughly describe the problem, context, deliverables. Don't be lazy. Write notes to a temporary file since they are expected to be thorough.
     - Use `branch` field to specify the name of the branch the worker should use for this task. Use distinct and descriptive branch names.
 
     # Submission
@@ -85,8 +85,9 @@ prompt: |
       `tasks create --title "Add parser" --description "Implement CLI argument parsing"`
     - Create a task with a branch:
       `tasks create --title "..." --description "..." --branch feature/my-strategy`
-    - Create a task with an initial note:
-      `tasks create --title "..." --description "..." --notes "Detailed scope or body content"`
+    - Create a task with an initial note (use --notes-file to avoid shell quoting issues with long notes):
+      `tasks create --title "..." --description "..." --notes-file /tmp/notes.md`
+      Write notes to a file first: `cat > /tmp/notes.md << 'EOF'\n...note content...\nEOF`
     - Each branched task must have a unique, descriptive branch name (e.g. feature/add-auth, feature/refactor-parser).
     - List current work:
       `tasks list --view open`

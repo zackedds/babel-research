@@ -6,7 +6,7 @@ import unittest
 from dataclasses import replace
 
 from src.orchestration.runs import RunStore
-from src.orchestration.sessions import Orchestrator, build_full_prompt, render_role_prompt, watch_session_completion
+from src.orchestration.sessions import Orchestrator, render_role_prompt, watch_session_completion
 from src.orchestration.state_paths import session_log_path, tasks_file_path
 from src.runtime.tmux import TmuxClient
 from src.tasks.store import tasks
@@ -42,6 +42,9 @@ class FakeTmuxClient:
     def capture_pane(self, session_name: str, start: int = -100) -> str:
         return self.panes.get(session_name, "")
 
+    def has_active_generation_marker(self, pane: str) -> bool:
+        return False
+
     def detect_terminal_outcome(self, session_name: str, *, start: int = -40) -> str | None:
         pane = self.capture_pane(session_name, start=start)
         return TmuxClient.terminal_outcome_from_pane(pane)
@@ -56,13 +59,6 @@ class FakeWatcherLauncher:
 
 
 class SessionsTest(unittest.TestCase):
-    def test_build_full_prompt_joins_once(self) -> None:
-        prompt = build_full_prompt("role prompt", "session prompt")
-        self.assertIn("role prompt", prompt)
-        self.assertIn("session prompt", prompt)
-        self.assertIn("Planner sessions complete only after they mark the run ready", prompt)
-        self.assertIn("Worker sessions complete only after they close their assigned task", prompt)
-
     def test_render_role_prompt_substitutes_template_vars(self) -> None:
         prompt = render_role_prompt("Limit {{max_workers}} workers.", {"max_workers": 3})
         self.assertEqual(prompt, "Limit 3 workers.")
@@ -569,6 +565,81 @@ class SessionsTest(unittest.TestCase):
             self.assertIsNotNone(persisted)
             assert persisted is not None
             self.assertIsNone(persisted.worktree_path)
+
+    def test_inactivity_timeout_worker_closes_task_and_completes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run = RunStore(root).create_run(initial_prompt="Plan.", workdir=root)
+            roles_path = root / "src" / "roles"
+            roles_path.mkdir(parents=True)
+            (roles_path / "worker.yaml").write_text("prompt: 'Do the work.'\n", encoding="utf-8")
+            fake_tmux = FakeTmuxClient()
+            task_id = tasks("create", path=tasks_file_path(root, run.id), title="T1", description="D1")["result"]["task"]["id"]
+            tasks("assign", path=tasks_file_path(root, run.id), id=task_id)
+            orchestrator = Orchestrator(root, tmux_client=fake_tmux, watcher_launcher=FakeWatcherLauncher(), run_id=run.id)
+            session = orchestrator.create_session(
+                AgentSessionSpec(
+                    role="worker",
+                    runtime="codex",
+                    session_prompt="Start.",
+                    workdir=root,
+                    task_id=task_id,
+                )
+            )
+            # Pane stays at a fixed non-empty value — simulates a frozen agent
+            fake_tmux.panes[session.tmux_session] = "some static output"
+
+            watch_session_completion(
+                root, run.id, session.id, session.tmux_session, "› ",
+                tmux_client=fake_tmux,
+                inactivity_timeout_seconds=0.05,
+                poll_interval_seconds=0.01,
+            )
+
+            reconciled = orchestrator.get_session(session.id)
+            self.assertIsNotNone(reconciled)
+            assert reconciled is not None
+            self.assertEqual(reconciled.terminal_outcome, "completed")
+            self.assertIsNone(reconciled.failure_source)
+            # Task should be closed with a TIMEOUT reason
+            closed = tasks("get", path=tasks_file_path(root, run.id), id=task_id)["result"]
+            self.assertEqual(closed["status"], "closed")
+            self.assertIn("TIMEOUT", closed["close_reason"])
+            self.assertIn("inactive", closed["close_reason"])
+
+    def test_inactivity_timeout_planner_marks_failed(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run = RunStore(root).create_run(initial_prompt="Plan.", workdir=root)
+            roles_path = root / "src" / "roles"
+            roles_path.mkdir(parents=True)
+            (roles_path / "planner.yaml").write_text("prompt: 'Plan carefully.'\n", encoding="utf-8")
+            fake_tmux = FakeTmuxClient()
+            orchestrator = Orchestrator(root, tmux_client=fake_tmux, watcher_launcher=FakeWatcherLauncher(), run_id=run.id)
+            session = orchestrator.create_session(
+                AgentSessionSpec(
+                    role="planner",
+                    runtime="codex",
+                    session_prompt="Start.",
+                    workdir=root,
+                )
+            )
+            # Pane stays at a fixed value — simulates a frozen planner
+            fake_tmux.panes[session.tmux_session] = "some static output"
+
+            watch_session_completion(
+                root, run.id, session.id, session.tmux_session, "› ",
+                tmux_client=fake_tmux,
+                inactivity_timeout_seconds=0.05,
+                poll_interval_seconds=0.01,
+            )
+
+            reconciled = orchestrator.get_session(session.id)
+            self.assertIsNotNone(reconciled)
+            assert reconciled is not None
+            self.assertEqual(reconciled.terminal_outcome, "failed")
+            self.assertEqual(reconciled.failure_source, "watcher_inactivity")
+            self.assertIn("inactive", reconciled.failure_reason)
 
     def test_create_session_uses_spec_session_id(self) -> None:
         with TemporaryDirectory() as tmp:

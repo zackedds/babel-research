@@ -178,7 +178,7 @@ def run_orchestration_loop(
                     worktree_path = create_worktree(run.workdir, session_id, branch)
                     effective_workdir = worktree_path
 
-                session_prompt = build_worker_prompt(assigned, run.id, tasks_path=run_tasks_path, branch=branch, worktree_path=worktree_path)
+                session_prompt = build_worker_prompt(assigned, run.id, branch=branch, worktree_path=worktree_path)
                 worker = orchestrator.create_session(
                     AgentSessionSpec(
                         role="worker",
@@ -194,6 +194,7 @@ def run_orchestration_loop(
                         template_vars={
                             "run_id": run.id,
                             "task": assigned,
+                            "notes": format_task_notes(assigned),
                             "wiki_sections": build_wiki_toc(Path(run.workdir) / "wiki"),
                         },
                     )
@@ -387,9 +388,7 @@ def build_planner_prompt(initial_prompt: str, run_id: str) -> str:
     ).strip()
 
 
-def build_worker_prompt(task_item: dict[str, object], run_id: str, *, tasks_path: Path | None = None, branch: str | None = None, worktree_path: Path | None = None) -> str:
-    task_id = str(task_item.get("id", "")).strip()
-    tasks_flag = f"--tasks-path {tasks_path}" if tasks_path is not None else f"--run-id {run_id}"
+def format_task_notes(task_item: dict[str, object]) -> str:
     notes = task_item.get("notes", [])
     note_lines: list[str] = []
     if isinstance(notes, list):
@@ -397,9 +396,14 @@ def build_worker_prompt(task_item: dict[str, object], run_id: str, *, tasks_path
             if isinstance(note, dict):
                 text = str(note.get("text", "")).strip()
                 if text:
-                    note_lines.append(f"- {text}")
-    if not note_lines:
-        note_lines = ["- none"]
+                    note_lines.append(text)
+    return "\n\n".join(note_lines) if note_lines else "(none)"
+
+
+def build_worker_prompt(task_item: dict[str, object], run_id: str, *, branch: str | None = None, worktree_path: Path | None = None) -> str:
+    task_id = str(task_item.get("id", "")).strip()
+    tasks_flag = f"--run-id {run_id}"
+    note_lines = [f"- {line}" for line in format_task_notes(task_item).splitlines() if line.strip()] or ["- none"]
     lines = [
         f"Task ID: {task_id}",
         f"Run ID: {run_id}",

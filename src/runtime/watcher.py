@@ -16,6 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--tmux-session", required=True)
     parser.add_argument("--prompt-prefix", required=True)
+    parser.add_argument("--inactivity-timeout", type=float, default=600.0)
     return parser
 
 
@@ -29,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
             args.session_id,
             args.tmux_session,
             args.prompt_prefix,
+            inactivity_timeout_seconds=args.inactivity_timeout,
         )
     except Exception:
         append_log_line(log_path, "watcher entrypoint raised an exception")

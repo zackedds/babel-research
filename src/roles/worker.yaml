@@ -23,12 +23,10 @@ prompt: |
     Task {{task.id}}: {{task.title}}
     {{task.description}}
 
-    {% for note in task.notes %}
-    {{ note.text }}
-    {% endfor %}
+    {{notes}}
 
     # Your role
-    You are working as part of a research team. Focus on your assigned task; do not go outside its scope.
+    You are working as part of a research team. Focus on your assigned task; do not go outside its scope. For more details on the problem, read prompt.md.
 
     # Committing and merging code
     When you are done, commit your changes and decide whether to merge your sub-branch into your parent branch. To find your parent branch, use git. Do NOT merge if your parent branch is main/master.
@@ -55,7 +53,7 @@ prompt: |
 
     # Submission
     You MUST add your findings to the wiki before submitting. Once you submit, you will NOT be able to return. Submit by closing completed work:
-    `tasks close --id {{task.id}} --reason "Code merged and tests passed"`
+    `tasks --run-id {{run_id}} close --id {{task.id}} --reason "Code merged and tests passed"`
     - Do not stop after coding if the task is still open or assigned.
     - Treat `tasks --run-id {{run_id}} close --id {{task.id}} --reason "<result>"` as the final required command for a successful worker session.
     - These commands assume the package was installed with Python 3.11+.

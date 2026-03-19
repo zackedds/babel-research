@@ -459,7 +459,15 @@ def render_role_prompt(role_prompt: str, template_vars: dict[str, object]) -> st
     return env.from_string(role_prompt).render(**template_vars)
 
 
-def spawn_completion_watcher(root: Path, run_id: str | None, session_id: str, tmux_session: str, prompt_prefix: str) -> None:
+def spawn_completion_watcher(
+    root: Path,
+    run_id: str | None,
+    session_id: str,
+    tmux_session: str,
+    prompt_prefix: str,
+    *,
+    inactivity_timeout_seconds: float = 600.0,
+) -> None:
     command = [
         sys.executable,
         "-m",
@@ -475,6 +483,7 @@ def spawn_completion_watcher(root: Path, run_id: str | None, session_id: str, tm
     ]
     if run_id is not None:
         command.extend(["--run-id", run_id])
+    command.extend(["--inactivity-timeout", str(inactivity_timeout_seconds)])
     log_path = session_log_path(root, session_id, run_id)
     append_log_line(log_path, f"spawning watcher for tmux_session={tmux_session}")
     handle = log_path.open("a", encoding="utf-8")
@@ -498,6 +507,7 @@ def watch_session_completion(
     *,
     tmux_client: TmuxClient | None = None,
     poll_interval_seconds: float = STATE_POLL_INTERVAL_SECONDS,
+    inactivity_timeout_seconds: float = 600.0,
 ) -> None:
     orchestrator = Orchestrator(root, tmux_client=tmux_client, watcher_launcher=lambda *_args: None, run_id=run_id)
     log_path = orchestrator.session_log_path(session_id)
@@ -505,6 +515,8 @@ def watch_session_completion(
     outcome: str
     failure_reason: str | None
     failure_source: str | None
+    last_pane_content: str = ""
+    last_activity_time = time.monotonic()
     try:
         while True:
             if not orchestrator.tmux.has_session(tmux_session):
@@ -520,6 +532,29 @@ def watch_session_completion(
                 failure_reason = f"session missing during completion evaluation: {session_id}"
                 failure_source = "watcher"
                 append_log_line(log_path, f"watcher session missing: {session_id}")
+                break
+
+            pane = orchestrator.tmux.capture_pane(tmux_session)
+            if pane != last_pane_content or orchestrator.tmux.has_active_generation_marker(pane):
+                last_pane_content = pane
+                last_activity_time = time.monotonic()
+            elif inactivity_timeout_seconds > 0 and time.monotonic() - last_activity_time > inactivity_timeout_seconds:
+                elapsed_min = (time.monotonic() - last_activity_time) / 60
+                timeout_msg = f"agent inactive for {elapsed_min:.1f}m"
+                append_log_line(log_path, f"watcher detected inactivity (role={session.role}): {timeout_msg}")
+                if session.role == "worker" and session.task_id and run_id is not None:
+                    store_path = tasks_file_path(root, run_id)
+                    try:
+                        tasks("close", path=store_path, id=session.task_id, reason=f"TIMEOUT: {timeout_msg}")
+                    except Exception:
+                        pass
+                    outcome = "completed"
+                    failure_reason = None
+                    failure_source = None
+                else:
+                    outcome = "failed"
+                    failure_reason = timeout_msg
+                    failure_source = "watcher_inactivity"
                 break
 
             candidate_outcome, candidate_reason, candidate_source = _evaluate_completion(root, run_id, session)

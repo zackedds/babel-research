@@ -7,14 +7,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from ..orchestration.state_paths import LEGACY_TASKS_PATH
-
 try:
     import fcntl
 except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None
-
-DEFAULT_TASKS_PATH = LEGACY_TASKS_PATH
 
 
 def _utc_now() -> str:
@@ -109,7 +105,7 @@ def _raw_task(task: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
-def tasks(op: str, *, path: Path = DEFAULT_TASKS_PATH, **kwargs: Any) -> dict[str, Any] | list[dict[str, Any]]:
+def tasks(op: str, *, path: Path, **kwargs: Any) -> dict[str, Any] | list[dict[str, Any]]:
     delay = float(kwargs.pop("_test_delay", 0) or 0)
 
     with _locked_store(path) as data:

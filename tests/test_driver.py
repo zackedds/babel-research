@@ -9,6 +9,7 @@ from src.orchestration.driver import build_planner_prompt, build_worker_prompt, 
 from src.orchestration.runs import RunStore
 from src.orchestration.state_paths import driver_log_path, tasks_file_path
 from src.tasks.store import tasks
+from src.utils.config import BabelConfig
 from src.utils.models import AgentSession, AgentSessionSpec
 
 
@@ -21,6 +22,7 @@ class FakeOrchestrator:
         self.next_id = 1
         self.default_terminal_outcome = "completed"
         self.outcomes_by_role: dict[str, list[str | None]] = {}
+        self.config = BabelConfig()
 
     def create_session(self, spec: AgentSessionSpec) -> AgentSession:
         session_id = f"session-{self.next_id}"
@@ -55,6 +57,9 @@ class FakeOrchestrator:
     def get_session(self, session_id: str) -> AgentSession | None:
         return self.sessions.get(session_id)
 
+    def list_sessions(self) -> list[AgentSession]:
+        return list(self.sessions.values())
+
 
 class DriverTest(unittest.TestCase):
     def test_spawn_orchestration_driver_writes_to_run_log(self) -> None:
@@ -86,7 +91,7 @@ class DriverTest(unittest.TestCase):
         prompt = build_worker_prompt({"id": "task-1", "title": "T", "description": "D", "notes": []}, "run-123")
         self.assertEqual(
             prompt,
-            "Task ID: task-1\nRun ID: run-123\n\nT\n\nD\n\nTask commands:\n- Read: tasks --run-id run-123 get --id task-1\n- Note: tasks --run-id run-123 note-append --id task-1 --note \"<progress>\"\n- Close: tasks --run-id run-123 close --id task-1 --reason \"<result>\"\n\nWorker completion checklist:\n1. Read the assignment and implement the requested work.\n2. Verify the behavior you changed.\n3. Final required command for success: tasks --run-id run-123 close --id task-1 --reason \"<result>\"\n4. Do not stop before step 3 has succeeded.\n\nNotes:\n- none",
+            "Task ID: task-1\nRun ID: run-123\n\nT\n\nD\n\nTask commands:\n- Read: tasks --run-id run-123 get --id task-1\n- Note: tasks --run-id run-123 note-append --id task-1 --note \"<progress>\"\n- Close: tasks --run-id run-123 close --id task-1 --reason \"<result>\"\n\nWorker completion checklist:\n1. Read the assignment and implement the requested work.\n2. Verify the behavior you changed.\n3. Final required command for success: tasks --run-id run-123 close --id task-1 --reason \"<result>\"\n4. Do not stop before step 3 has succeeded.\n\nNotes:\n- (none)",
         )
 
     def test_build_planner_prompt_includes_ready_command(self) -> None:
@@ -278,7 +283,7 @@ class DriverTest(unittest.TestCase):
             branch="feature/x",
             worktree_path=Path("/repo/.worktrees/abc123"),
         )
-        self.assertIn("Branch context: feature/x", prompt)
+        self.assertIn("Branch: feature/x", prompt)
         self.assertIn("Working directory: /repo/.worktrees/abc123", prompt)
         self.assertIn("feature/x", prompt)
 
@@ -287,7 +292,7 @@ class DriverTest(unittest.TestCase):
             {"id": "task-1", "title": "T", "description": "D", "notes": []},
             "run-1",
         )
-        self.assertNotIn("Branch context", prompt)
+        self.assertNotIn("Branch:", prompt)
         self.assertNotIn("Working directory", prompt)
 
     def test_worker_spawn_loop_calls_worktree_setup_when_branch_set(self) -> None:
