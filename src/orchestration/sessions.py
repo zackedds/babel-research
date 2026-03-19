@@ -184,8 +184,9 @@ class Orchestrator:
             effective_pre_cmds = override.pre_prompt_commands or runtime.pre_prompt_commands
             for pre_cmd in effective_pre_cmds:
                 self.tmux.paste_and_submit(tmux_session, pre_cmd)
-                time.sleep(3)
+                time.sleep(5)
                 self.tmux.wait_until_ready(tmux_session, runtime.ready_strategy)
+                time.sleep(2)
             self.tmux.paste_and_submit(tmux_session, full_prompt)
             # agent_log_file will be back-filled by _start_log_file_scanner
         except Exception as exc:
