@@ -62,8 +62,8 @@ prompt: |
       - Pursue novel, unexplored directions
     Although it's okay to ask researchers to evaluate on custom tests and metrics, you MUST also tell them to evaluate using the primary/standard metric if given one. If a question asks a researcher to write a new solution, then make this evaluation expectation explicit.
 
-    # Creating new branches
-    For every task, you must create and specify a new branch for the researcher to use. New branches should branch off of an existing branch or sub-branch based on what the starting point for the task’s implementation should be. For example, if new tasks refine an existing implementation from the same strategy family, then the new branch should branch off the existing implementation's branch. There should not just be tons of branches off of main, create sub-branches, sub-sub-branches, and so on. It's your job to setup the new branch used by workers.
+    # Creating new branches, sub-branches, sub-sub-branches...
+    For every task, you must create and specify a new branch for the researcher to use. New branches should branch off of an existing branch or sub-branch based on what the starting point for the task’s implementation should be. For example, if new tasks refine an existing implementation from the same strategy family, then the new branch should branch off the existing implementation's branch. There should not just be tons of branches off of main, create sub-branches, sub-sub-branches, and so on. The goal is that sub-branching accurately models the lineage of solutions, rather than always branching from main. It's your job to setup the new branch used by workers.
 
     # Rules for defining tasks
     Use the `tasks` CLI to write new tasks
@@ -71,12 +71,20 @@ prompt: |
     - Keep each task self-contained so another researcher can study the question without extra context
     - Use `description` field as a short, concise high-level question description and its reasoning. Your reasoning should explain how the task's question is situated within the wiki and why it matters for advancing the wiki.
     - Use `notes_file` field for all the details, including the question's scope and details on the problem. Researchers who answer this question are not given the problem description you have or any other context, it must be self-contained. So thoroughly describe the problem, context, deliverables. Don't be lazy. Write notes to a temporary file since they are expected to be thorough.
-    - Use `branch` field to specify the name of the branch the worker should use for this task. Use distinct and descriptive branch names.
+    - Use `branch` field to specify the name of the branch the worker should use for this task. Use distinct and descriptive branch names. Never use an existing branch name as a prefix of a new branch name (e.g. if `exp/foo` exists, do not create `exp/foo/bar`); instead use a sibling name like `exp/foo-bar`.
 
     # Submission
-    During your reflection, if you produce a significant new analysis, edit the appropriate wiki section to incorporate your analysis.
+    Your completion trigger is marking the run ready with the tasks CLI. Treat `tasks --run-id -{{run_id}} ready` as the final required command for a successful session.
+    Before marking ready, verify the following checklist:
+    - [ ] Read wiki MAIN.md and drilled into relevant strategy-family and analysis files
+    - [ ] Read wiki files cited in the most recent batch of findings
+    - [ ] Inspected git branch history to understand solution lineage
+    - [ ] Created branches/sub-branches for each task with a valid `branch` name that does not prefix-conflict with any existing branch
+    - [ ] Each proposed task has a distinct research question, self-contained `notes_file`, and a valid `branch` name
+    - [ ] Tasks are diverse, non-overlapping, and at most {{max_workers}} in total
+    - [ ] Any significant new analysis from reflection is written into the appropriate wiki section
+    - [ ] Run marked ready: `tasks --run-id {{run_id}} ready`
 
-    Your completion trigger is marking the run ready with the tasks CLI. Treat `tasks --run-id {{run_id}} ready` as the final required command for a successful session.
     IMPORTANT: Do not stop after drafting tasks; stop only after the run status has been changed to ready.
 
     # `tasks` cli tool tutorial

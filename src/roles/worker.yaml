@@ -51,6 +51,8 @@ prompt: |
       - What directions for further improving solutions do these findings imply?
       - How is this finding related to other findings in the wiki? Situate your new findings within existing findings, citing file paths.
 
+    *Be adaptive*: These guidelines on structure and content are starting points that don't have to be followed strictly. Different problems and solutions might require different sections and content, so adapt it to what's best for this context.
+
     # Submission
     You MUST add your findings to the wiki before submitting. Once you submit, you will NOT be able to return. Submit by closing completed work:
     `tasks --run-id {{run_id}} close --id {{task.id}} --reason "Code merged and tests passed"`
