@@ -375,7 +375,7 @@ def _wait_for_session(
     orchestrator: Orchestrator,
     session_id: str,
     poll_interval_seconds: float,
-    timeout_seconds: float = 1800.0,
+    timeout_seconds: float = 900.0,
 ) -> AgentSession:
     deadline = time.monotonic() + timeout_seconds
     while True:
