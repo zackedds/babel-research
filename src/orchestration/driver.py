@@ -282,10 +282,8 @@ def run_orchestration_loop(
             if _session_failed(librarian):
                 append_log_line(
                     log_path,
-                    f"librarian session failed session_id={librarian.id} outcome={librarian.terminal_outcome} source={librarian.failure_source}",
+                    f"librarian session failed session_id={librarian.id} outcome={librarian.terminal_outcome} source={librarian.failure_source} (continuing to next round)",
                 )
-                _update_run(run_store, replace(run, status="failed", current_phase="stopped"))
-                break
             current_wave = run.worker_waves[-1] if run.worker_waves else []
             for session_id in current_wave:
                 session = orchestrator.get_session(session_id)
@@ -367,7 +365,7 @@ def _wait_for_session(
     orchestrator: Orchestrator,
     session_id: str,
     poll_interval_seconds: float,
-    timeout_seconds: float = 7200.0,
+    timeout_seconds: float = 1800.0,
 ) -> AgentSession:
     deadline = time.monotonic() + timeout_seconds
     while True:
