@@ -89,3 +89,4 @@ class OrchestrationRun:
     current_phase: Literal["planner", "worker", "librarian", "stopped"]
     created_at: datetime
     updated_at: datetime
+    debug: bool = False

@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("prompt_file", help="Path to the session prompt file")
     run.add_argument("--max-rounds", type=_positive_int, default=None)
     run.add_argument("--max-workers", type=_positive_int, default=None)
+    run.add_argument("--debug", action="store_true", help="Enable resource diagnostic logging")
 
     inspect = subparsers.add_parser("inspect")
     inspect.add_argument("--run-id", help="Run id to inspect; defaults to the latest run")
@@ -76,6 +77,7 @@ def run_file(
     root: Path | None = None,
     max_rounds: int | None = None,
     max_workers: int | None = None,
+    debug: bool = False,
 ) -> dict[str, object]:
     prompt_path = prompt_file.resolve()
     prompt_text = prompt_path.read_text(encoding="utf-8")
@@ -88,8 +90,9 @@ def run_file(
         workdir=state_root,
         max_rounds=max_rounds,
         max_workers=max_workers,
+        debug=debug,
     )
-    spawn_orchestration_driver(orchestrator_root, run.id, state_root=state_root)
+    spawn_orchestration_driver(orchestrator_root, run.id, state_root=state_root, debug=debug)
     return {"ok": True, "run_id": run.id}
 
 
@@ -159,6 +162,7 @@ def main(argv: list[str] | None = None) -> int:
                 Path.cwd(),
                 max_rounds=args.max_rounds,
                 max_workers=args.max_workers,
+                debug=args.debug,
             )
         elif args.command == "activity":
             result = run_activity(Path.cwd(), run_id=args.run_id, snapshot=args.snapshot)

@@ -34,6 +34,7 @@ class RunStore:
         workdir: Path,
         max_rounds: int | None = None,
         max_workers: int | None = None,
+        debug: bool = False,
     ) -> OrchestrationRun:
         now = _utc_now()
         run = OrchestrationRun(
@@ -51,6 +52,7 @@ class RunStore:
             current_phase="planner",
             created_at=now,
             updated_at=now,
+            debug=debug,
         )
         self._write_run_file(run)
         write_json_atomic(sessions_file_path(self.root, run.id), {"sessions": []})
@@ -97,6 +99,7 @@ class RunStore:
                 current_phase=item["current_phase"],
                 created_at=datetime.fromisoformat(item["created_at"]),
                 updated_at=datetime.fromisoformat(item["updated_at"]),
+                debug=bool(item.get("debug", False)),
             )
             runs[run.id] = run
         return runs
@@ -140,6 +143,7 @@ class RunStore:
             current_phase=item["current_phase"],
             created_at=datetime.fromisoformat(item["created_at"]),
             updated_at=datetime.fromisoformat(item["updated_at"]),
+            debug=bool(item.get("debug", False)),
         )
 
     def _write_run_file(self, run: OrchestrationRun) -> None:

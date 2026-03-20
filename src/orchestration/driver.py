@@ -75,26 +75,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--orchestrator-root", required=False, default=None)
+    parser.add_argument("--debug", action="store_true")
     return parser
 
 
-def spawn_orchestration_driver(root: Path, run_id: str, *, state_root: Path | None = None) -> None:
+def spawn_orchestration_driver(root: Path, run_id: str, *, state_root: Path | None = None, debug: bool = False) -> None:
     effective_state_root = state_root or root
     log_path = driver_log_path(effective_state_root, run_id)
     append_log_line(log_path, f"spawning orchestration driver for run_id={run_id}")
     handle = log_path.open("a", encoding="utf-8")
+    command = [
+        sys.executable,
+        "-m",
+        "src.orchestration.driver",
+        "--root",
+        str(effective_state_root),
+        "--orchestrator-root",
+        str(root),
+        "--run-id",
+        run_id,
+    ]
+    if debug:
+        command.append("--debug")
     subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "src.orchestration.driver",
-            "--root",
-            str(effective_state_root),
-            "--orchestrator-root",
-            str(root),
-            "--run-id",
-            run_id,
-        ],
+        command,
         stdout=handle,
         stderr=subprocess.STDOUT,
         stdin=subprocess.DEVNULL,
@@ -110,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         append_log_line(log_path, f"driver started run_id={args.run_id}")
         orchestrator_root = Path(args.orchestrator_root) if args.orchestrator_root else Path(args.root)
-        run_orchestration_loop(Path(args.root), args.run_id, orchestrator_root=orchestrator_root)
+        run_orchestration_loop(Path(args.root), args.run_id, orchestrator_root=orchestrator_root, debug=args.debug)
     except Exception:
         append_log_line(log_path, "driver raised an exception")
         append_log_line(log_path, traceback.format_exc().rstrip())
@@ -127,14 +131,16 @@ def run_orchestration_loop(
     run_store: RunStore | None = None,
     poll_interval_seconds: float = POLL_INTERVAL_SECONDS,
     orchestrator_root: Path | None = None,
+    debug: bool = False,
 ) -> None:
     root = root.resolve()
     run_store = run_store or RunStore(root)
     pkg_root = (orchestrator_root or root).resolve()
-    orchestrator = orchestrator or Orchestrator(root, run_id=run_id, roles_path=pkg_root / "src" / "roles")
     run = run_store.get_run(run_id)
     if run is None:
         raise ValueError(f"Unknown run id: {run_id}")
+    effective_debug = debug or run.debug
+    orchestrator = orchestrator or Orchestrator(root, run_id=run_id, roles_path=pkg_root / "src" / "roles", debug=effective_debug)
     run_tasks_path = tasks_file_path(root, run.id)
     log_path = driver_log_path(root, run.id)
     append_log_line(log_path, f"orchestration loop starting phase={run.current_phase} rounds_completed={run.rounds_completed}")
