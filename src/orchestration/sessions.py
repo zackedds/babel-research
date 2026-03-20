@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import secrets
 import shutil
 import subprocess
@@ -86,12 +88,14 @@ class Orchestrator:
         tmux_client: TmuxClient | None = None,
         watcher_launcher=None,
         run_id: str | None = None,
+        debug: bool = False,
     ) -> None:
         self.root = root.resolve()
         self.roles_path = roles_path or self.root / "src" / "roles"
         self.state_dir = self.root / ".babel-agent"
         self.config = BabelConfig.load(self.state_dir / "config.toml")
         self.run_id = run_id
+        self.debug = debug
         self.state_path = sessions_file_path(self.root, run_id)
         self.tmux = tmux_client or TmuxClient()
         self._state_lock = threading.RLock()
@@ -196,11 +200,13 @@ class Orchestrator:
 
         running = replace(self._with_status(record, "running"), agent_log_file=None)
         self._upsert(running)
+        if self.debug:
+            _log_resource_snapshot(self.session_log_path(running.id))
         append_log_line(
             self.session_log_path(running.id),
             f"session running; watcher starting for tmux_session={running.tmux_session} agent_log_file={running.agent_log_file}",
         )
-        self._watcher_launcher(self.root, self.run_id, running.id, running.tmux_session, runtime.ready_strategy.prompt_prefix)
+        self._watcher_launcher(self.root, self.run_id, running.id, running.tmux_session, runtime.ready_strategy.prompt_prefix, debug=self.debug)
         self._start_log_file_scanner(running.id, runtime.agent_logs_dir, pre_launch_time)
         return running
 
@@ -467,6 +473,7 @@ def spawn_completion_watcher(
     prompt_prefix: str,
     *,
     inactivity_timeout_seconds: float = 600.0,
+    debug: bool = False,
 ) -> None:
     command = [
         sys.executable,
@@ -484,10 +491,12 @@ def spawn_completion_watcher(
     if run_id is not None:
         command.extend(["--run-id", run_id])
     command.extend(["--inactivity-timeout", str(inactivity_timeout_seconds)])
+    if debug:
+        command.append("--debug")
     log_path = session_log_path(root, session_id, run_id)
     append_log_line(log_path, f"spawning watcher for tmux_session={tmux_session}")
     handle = log_path.open("a", encoding="utf-8")
-    subprocess.Popen(
+    proc = subprocess.Popen(
         command,
         stdout=handle,
         stderr=subprocess.STDOUT,
@@ -495,6 +504,7 @@ def spawn_completion_watcher(
         start_new_session=True,
         cwd=str(root),
     )
+    append_log_line(log_path, f"watcher spawned pid={proc.pid} for tmux_session={tmux_session}")
     handle.close()
 
 
@@ -508,15 +518,19 @@ def watch_session_completion(
     tmux_client: TmuxClient | None = None,
     poll_interval_seconds: float = STATE_POLL_INTERVAL_SECONDS,
     inactivity_timeout_seconds: float = 600.0,
+    debug: bool = False,
 ) -> None:
-    orchestrator = Orchestrator(root, tmux_client=tmux_client, watcher_launcher=lambda *_args: None, run_id=run_id)
+    orchestrator = Orchestrator(root, tmux_client=tmux_client, watcher_launcher=lambda *_args, **_kw: None, run_id=run_id)
     log_path = orchestrator.session_log_path(session_id)
-    append_log_line(log_path, f"watcher started tmux_session={tmux_session} prompt_prefix={prompt_prefix!r}")
+    append_log_line(log_path, f"watcher started pid={os.getpid()} tmux_session={tmux_session} prompt_prefix={prompt_prefix!r}")
+    if debug:
+        _log_resource_snapshot(log_path)
     outcome: str
     failure_reason: str | None
     failure_source: str | None
     last_pane_content: str = ""
     last_activity_time = time.monotonic()
+    last_resource_log_time = time.monotonic()
     try:
         while True:
             if not orchestrator.tmux.has_session(tmux_session):
@@ -524,6 +538,9 @@ def watch_session_completion(
                 failure_reason = f"tmux session exited before task completed: {tmux_session}"
                 failure_source = "tmux_missing"
                 append_log_line(log_path, f"watcher observed tmux session exit: {tmux_session}")
+                if debug:
+                    _log_resource_snapshot(log_path)
+                    _log_sessions_state(log_path, orchestrator.state_path, session_id)
                 break
 
             session = orchestrator.get_session(session_id)
@@ -532,6 +549,8 @@ def watch_session_completion(
                 failure_reason = f"session missing during completion evaluation: {session_id}"
                 failure_source = "watcher"
                 append_log_line(log_path, f"watcher session missing: {session_id}")
+                if debug:
+                    _log_sessions_state(log_path, orchestrator.state_path, session_id)
                 break
 
             pane = orchestrator.tmux.capture_pane(tmux_session)
@@ -565,6 +584,10 @@ def watch_session_completion(
                 append_log_line(log_path, f"watcher detected terminal state outcome={outcome} reason={failure_reason!r}")
                 break
 
+            if debug and time.monotonic() - last_resource_log_time >= 60.0:
+                _log_resource_snapshot(log_path)
+                last_resource_log_time = time.monotonic()
+
             time.sleep(poll_interval_seconds)
 
         orchestrator._mark_terminal_outcome_if_present(
@@ -573,18 +596,19 @@ def watch_session_completion(
             failure_reason=failure_reason,
             failure_source=failure_source,
         )
-    except Exception:
-        append_log_line(log_path, "watcher raised an exception")
+    except BaseException as exc:
+        exc_name = type(exc).__name__
+        append_log_line(log_path, f"watcher caught {exc_name} pid={os.getpid()}")
         append_log_line(log_path, traceback.format_exc().rstrip())
         orchestrator._mark_terminal_outcome_if_present(
             session_id,
             "failed",
-            failure_reason="watcher raised an exception",
+            failure_reason=f"watcher caught {exc_name}",
             failure_source="watcher",
         )
         raise
     finally:
-        append_log_line(log_path, f"watcher stopping tmux_session={tmux_session}")
+        append_log_line(log_path, f"watcher stopping pid={os.getpid()} tmux_session={tmux_session}")
         orchestrator.tmux.kill_session(tmux_session)
         session_record = orchestrator.get_session(session_id)
         if session_record is not None and session_record.worktree_path is not None:
@@ -627,3 +651,71 @@ def _evaluate_completion(root: Path, run_id: str | None, session: AgentSession) 
         return "pending", None, None
 
     return "failed", f"unsupported role completion trigger: {session.role}", "watcher"
+
+
+def _log_resource_snapshot(log_path: Path) -> None:
+    """Log container resource usage (cgroup stats, process count, dmesg tail)."""
+    lines = []
+    # cgroup v2 memory
+    for name, path in [
+        ("memory.current", "/sys/fs/cgroup/memory.current"),
+        ("memory.max", "/sys/fs/cgroup/memory.max"),
+        ("memory.events", "/sys/fs/cgroup/memory.events"),
+        ("pids.current", "/sys/fs/cgroup/pids.current"),
+        ("pids.max", "/sys/fs/cgroup/pids.max"),
+    ]:
+        try:
+            lines.append(f"{name}={Path(path).read_text().strip()}")
+        except Exception:
+            pass
+    # cgroup v1 fallback
+    if not lines:
+        for name, path in [
+            ("memory.usage", "/sys/fs/cgroup/memory/memory.usage_in_bytes"),
+            ("memory.limit", "/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+            ("memory.oom_control", "/sys/fs/cgroup/memory/memory.oom_control"),
+        ]:
+            try:
+                lines.append(f"{name}={Path(path).read_text().strip()}")
+            except Exception:
+                pass
+    # process count and watcher-specific info
+    try:
+        pids = [p for p in Path("/proc").iterdir() if p.name.isdigit()]
+        lines.append(f"proc_count={len(pids)}")
+    except Exception:
+        pass
+    # log RSS of the current watcher process
+    try:
+        status_path = Path(f"/proc/{os.getpid()}/status")
+        for status_line in status_path.read_text().splitlines():
+            if status_line.startswith("VmRSS:"):
+                lines.append(f"self_rss={status_line.split(':', 1)[1].strip()}")
+                break
+    except Exception:
+        pass
+    # dmesg tail (best-effort, may need privileges)
+    try:
+        result = subprocess.run(["dmesg", "-T"], capture_output=True, text=True, timeout=5)
+        tail = "\n".join(result.stdout.strip().splitlines()[-10:])
+        if tail:
+            lines.append(f"dmesg_tail:\n{tail}")
+    except Exception:
+        pass
+    if lines:
+        append_log_line(log_path, "resource_snapshot: " + " | ".join(lines))
+
+
+def _log_sessions_state(log_path: Path, state_path: Path, expected_id: str) -> None:
+    """Log raw sessions.json contents when a session is unexpectedly missing."""
+    try:
+        raw = state_path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        ids = [s["id"] for s in data.get("sessions", [])]
+        append_log_line(
+            log_path,
+            f"sessions_state: file_size={len(raw)} session_count={len(ids)} "
+            f"ids={ids} expected={expected_id} found={expected_id in ids}",
+        )
+    except Exception as e:
+        append_log_line(log_path, f"sessions_state: error reading {state_path}: {e}")

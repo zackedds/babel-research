@@ -54,7 +54,7 @@ class FakeWatcherLauncher:
     def __init__(self) -> None:
         self.calls: list[tuple[Path, str | None, str, str, str]] = []
 
-    def __call__(self, root: Path, run_id: str | None, session_id: str, tmux_session: str, prompt_prefix: str) -> None:
+    def __call__(self, root: Path, run_id: str | None, session_id: str, tmux_session: str, prompt_prefix: str, **kwargs) -> None:
         self.calls.append((root, run_id, session_id, tmux_session, prompt_prefix))
 
 
