@@ -132,9 +132,12 @@ def _command_kwargs(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
 
 
 def _resolve_tasks_path(args: argparse.Namespace) -> Path:
-    root = find_workspace_root(Path.cwd())
+    root = find_workspace_root(Path.cwd(), args.run_id)
     if args.run_id is not None:
-        return tasks_file_path(root, args.run_id)
+        path = tasks_file_path(root, args.run_id)
+        if not path.exists():
+            raise RuntimeError(f"No tasks file found for run id {args.run_id} under workspace {root}")
+        return path
     return resolve_default_tasks_path(root)
 
 

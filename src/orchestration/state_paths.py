@@ -96,17 +96,20 @@ def resolve_default_run_id(root: Path) -> str | None:
     return None
 
 
-def find_workspace_root(start: Path) -> Path:
+def find_workspace_root(start: Path, run_id: str | None = None) -> Path:
     resolved = start.resolve()
-    if ".worktrees" not in resolved.parts:
-        return resolved
     current = resolved
+    fallback = resolved
     while True:
         if (current / STATE_DIR).is_dir():
-            return current
+            if run_id is None:
+                return current
+            if (current / RUNS_DIR / run_id).is_file():
+                return current
+            fallback = current
         parent = current.parent
         if parent == current:
-            return resolved  # reached fs root, fall back
+            return fallback
         current = parent
 
 
