@@ -9,3 +9,5 @@ tests/smoke_out/
 environments/ale_bench_lite/runs/
 *.nohup.log
 nohup.out
+tests/concurrency_out/
+environments/circle_packing/
