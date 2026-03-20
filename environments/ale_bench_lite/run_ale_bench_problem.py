@@ -127,8 +127,10 @@ def start_container(
          "git", "config", "--global", "--add", "safe.directory", "/testbed/workspace"],
         check=True,
     )
-    # Init git repo with an initial commit so branches/worktrees work
-    (run_dir / ".gitignore").write_text(".codex/\n")
+    # Init git repo with an initial commit so branches/worktrees work.
+    # These paths are live runtime state and must never be tracked by the
+    # run-local repo, or later branch checkouts can delete them mid-run.
+    (run_dir / ".gitignore").write_text(".codex/\n.babel-agent/\n.worktrees/\n")
     subprocess.run(
         ["docker", "exec", "-w", "/testbed/workspace", container_name, "git", "init"],
         check=True,
@@ -165,6 +167,8 @@ def run_bab_in_container(
     run_dir: Path,
     max_rounds: int | None,
     max_workers: int | None,
+    *,
+    debug: bool = False,
 ) -> None:
     from src.orchestration.runs import RunStore
 
@@ -174,6 +178,8 @@ def run_bab_in_container(
         cmd += ["--max-rounds", str(max_rounds)]
     if max_workers is not None:
         cmd += ["--max-workers", str(max_workers)]
+    if debug:
+        cmd.append("--debug")
     print(f"[run] Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     run_id = result.stdout.split()[0]
@@ -208,6 +214,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     parser.add_argument("--max-rounds", type=int, default=None)
     parser.add_argument("--max-workers", type=int, default=None)
+    parser.add_argument("--debug", action="store_true", help="Enable resource diagnostic logging")
     args = parser.parse_args()
 
     problem_id: str = args.problem_id
@@ -275,7 +282,7 @@ def main() -> None:
 
     try:
         # Run bab orchestration inside container
-        run_bab_in_container(container_name, run_dir, max_rounds, max_workers)
+        run_bab_in_container(container_name, run_dir, max_rounds, max_workers, debug=args.debug)
     finally:
         stop_container(container_name)
 
