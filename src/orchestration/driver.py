@@ -142,16 +142,26 @@ def run_orchestration_loop(
 
     while run.status == "running":
         if run.current_phase == "planner":
-            run = _ensure_planner_cycle(run, orchestrator, run_store)
-            if run.status != "running":
+            _max_planner_attempts = 2
+            planner_succeeded = False
+            for planner_attempt in range(1, _max_planner_attempts + 1):
+                run = _ensure_planner_cycle(run, orchestrator, run_store)
+                if run.status != "running":
+                    break
+                planner = _wait_for_session(orchestrator, run.planner_session_ids[-1], poll_interval_seconds)
+                if _session_failed(planner):
+                    append_log_line(
+                        log_path,
+                        f"planner session failed session_id={planner.id} outcome={planner.terminal_outcome} source={planner.failure_source} (attempt {planner_attempt}/{_max_planner_attempts})",
+                    )
+                    if planner_attempt < _max_planner_attempts:
+                        append_log_line(log_path, "retrying planner...")
+                        continue
+                    _update_run(run_store, replace(run, status="failed", current_phase="stopped"))
+                    break
+                planner_succeeded = True
                 break
-            planner = _wait_for_session(orchestrator, run.planner_session_ids[-1], poll_interval_seconds)
-            if _session_failed(planner):
-                append_log_line(
-                    log_path,
-                    f"planner session failed session_id={planner.id} outcome={planner.terminal_outcome} source={planner.failure_source}",
-                )
-                _update_run(run_store, replace(run, status="failed", current_phase="stopped"))
+            if not planner_succeeded:
                 break
             _sync_claimed_tasks(run_tasks_path, run)
             ready_tasks = tasks("list", path=run_tasks_path, view="ready", include_full=True)["result"]["tasks"]
