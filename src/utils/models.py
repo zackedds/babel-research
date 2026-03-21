@@ -31,6 +31,7 @@ class RuntimeDefinition:
     agent_logs_dir: Path | None = None
     model_flag: str = "-m"
     pre_prompt_commands: tuple[str, ...] = ()
+    pre_paste_delay_seconds: float = 0.0
 
 
 @dataclass(frozen=True)

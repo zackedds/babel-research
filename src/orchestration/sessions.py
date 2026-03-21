@@ -182,6 +182,8 @@ class Orchestrator:
                 self.tmux.paste_and_submit(tmux_session, pre_cmd)
                 time.sleep(3)
                 self.tmux.wait_until_ready(tmux_session, runtime.ready_strategy)
+            if runtime.pre_paste_delay_seconds > 0:
+                time.sleep(runtime.pre_paste_delay_seconds)
             self.tmux.paste_and_submit(tmux_session, full_prompt)
             # agent_log_file will be back-filled by _start_log_file_scanner
         except Exception as exc:

@@ -38,6 +38,7 @@ def builtin_runtimes() -> dict[str, RuntimeDefinition]:
             ),
             agent_logs_dir=Path.home() / ".claude" / "projects",
             model_flag="--model",
+            pre_paste_delay_seconds=5.0,
         ),
     }
 
